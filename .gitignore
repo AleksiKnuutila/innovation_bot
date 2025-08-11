@@ -1,11 +1,45 @@
+# VB.NET legacy
 bin/
 obj
 .vs/
 *.suo
-*.log
 *.user
 *.orig
-log.txt
-save.txt
 packages/
 _UpgradeReport_Files
+
+# Node.js / TypeScript
+node_modules/
+.pnpm-debug.log*
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+log.txt
+save.txt
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
