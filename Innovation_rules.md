@@ -187,6 +187,14 @@ Nine normal achievements are available to start the game, one of each from ages 
 
 Special achievements can be claimed at any time, even in the middle of an effect, or during another player’s turn. If you meet the conditions for one of them, take it immediately. Like normal achievements, once a special achievement is claimed by a player, it is no longer available for others to claim. In the rare case that two players simultaneously become eligible to claim a special achievement, the tie is broken in turn order going clockwise, with the current player winning ties.
 
+### List of special achievements
+
+- Monument: Claim this special achievement immediately if you tuck six or score six cards during a single turn. Note: Transfered cards from other players do not count toward this achievement, nor does exchanging cards from your hand and score pile.
+- Empire: Claim this special achievement immediately if you have three or more icons of all six
+- World: Claim this special achievement immediately if you have twelve or more on your board.
+- Wonder:  Claim this special achievement immediately if you have five colors on your board, and each is splayed either up or right.
+- Universe:  Claim this special achievement immediately if you have five top cards, and each is of value 8 or higher.
+
 # WINNING AND GAME END
 
 There are three ways to win a game of Innovation: by achievements, score, or special card effect.

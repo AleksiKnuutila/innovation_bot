@@ -61,7 +61,7 @@ Create a fully playable digital version of Carl Chudyk’s _Innovation_ (4th e
         
 - Edition toggle (start with 4E rules, but design for future 3E)
     
-- Support for ONLY CARDS FROM AGE 1
+- Support for cards from AGES 1-3 (minimum viable gameplay)
     
 - Event logging for UI + debugging
     
@@ -156,7 +156,7 @@ Create a fully playable digital version of Carl Chudyk’s _Innovation_ (4th e
 
 ## **Future Phases (Post-MVP)**
 
-1. **Full card set** for chosen edition: Third edition of Innovation
+1. **Full card set** for ages 4-10, then expansions
     
 2. **Bot improvements**:
     - Pluggable evaluation function (heuristics or NN)

@@ -42,7 +42,15 @@ Technical constraints and patterns:
 - **Two-layer model**: Actions (player intents) vs Choices (rule-forced decisions)
 - Compact IDs, versioned schema, cross-platform determinism
 
-### 6. **vb-implementation/** 
+### 6. **Innovation_faq_and_cards.md**
+Official FAQ and complete card database containing:
+- **FAQ Section**: Edge cases, timing rules, keyword clarifications
+- **Complete Card List**: All cards ages 1-10 with exact text, icons, and dogma effects
+- **Card Clarifications**: Detailed explanations of how each card's effects work
+- **Special Achievement Rules**: Complete conditions and timing
+- **Team Play Rules**: 2v2 variant rules
+
+### 7. **vb-implementation/** 
 Legacy Visual Basic implementation containing:
 - **Innovation.txt**: Complete card database with metadata and effects
 - **Functions.vb**: Card effect implementations and game logic

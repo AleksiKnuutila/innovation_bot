@@ -1,69 +1,120 @@
-Here’s a cleaned-up plan that matches the **Option A (effect stack + synchronous stepper)** architecture.
+Here's a cleaned-up plan that uses a **simplified state machine** architecture instead of complex effect queues.
 
 # Phase 0 — Repo & Workspace
 
-* Create monorepo (pnpm or yarn workspaces)
-  `/packages/shared`, `/packages/engine`, `/packages/ui`, `/packages/bot`, `/packages/sim`
+* Create single TypeScript package with clear module structure
+  `/src/engine`, `/src/ui`, `/src/bot`, `/src/types`, `/src/cards`
 * Enable TypeScript strict, ESLint, Prettier
-* Add Vitest/Jest + coverage; CI (GitHub Actions)
+* Add Vitest for testing + coverage
+* Simple build setup with Vite
 
-# Phase 1 — Shared Contracts (the “language”)
+# Phase 0.5 — Card Database Preparation
 
-* Define IDs: `PlayerID`, `CardID`, `Color`, `Icon` (numeric where possible)
-* Define **Actions**: `Draw`, `Meld`, `Dogma`, `Dominate`
-* Define **Choices** & **ChoiceAnswer**: `SelectCards`, `SelectPile`, `OrderCards`, `YesNo`, `SelectPlayer`
-* Define **Events**: `Drew`, `Melded`, `Splayed`, `Dogma`, `DemandStart`, `Returned`, `Scored`, `Domination`, `GameEnd`
-* Define **Observation** (imperfect-info) and **State header** metadata
-* Publish `shared` package; others depend on it
+* **Extract card database from VB implementation**:
+  * Convert VB card metadata to TypeScript/JSON format
+  * Include basic info: name, age, color, icons, dogma text
+  * Focus on Ages 1-3 for MVP scope
+* **Select representative test cards**:
+  * Choose 2-3 Age 1 cards with different complexity levels
+  * Simple: Basic draw/meld effects
+  * Medium: Conditional effects or splaying
+  * Complex: Multi-step effects or demands
+* **Reference implementation patterns** (as needed):
+  * Look at VB card handlers when implementing specific cards
+  * Use FAQ file to resolve specific questions that arise
 
-# Phase 2 — Engine Skeleton (deterministic stepper core)
+**DoD Phase 0.5**
+* Card database ready for Ages 1-3
+* Test cards selected for architecture validation
 
-* Implement seeded RNG (xoshiro/PCG) stored in `State`
-* Model `State` with dense arrays/typed arrays; cache per-player icon counts
-* Turn/legality: 2 actions/turn, action validity, domination thresholds
-* **Stepper API (no async inside engine):**
+# Phase 1 — Core Types & State Machine
 
-  * `startAction(state, action) → NeedChoice | Done`
-  * `resumeWithAnswer(state, answer) → NeedChoice | Done`
-  * `legalActions(state, player)`, `observe(state, player)`
-  * `StepResult` is either `{ kind: "NeedChoice", choice }` or `{ kind: "Done", events }`
-* Serializer: `encode(state) → { header, Uint32Array }`, `decode(...)`
-* Minimal logging: every mutation emits Events
+* Define IDs: `PlayerID`, `CardID`, `Color`, `Icon` (numeric where possible)  
+* Define **Actions**: `Draw`, `Meld`, `Dogma`, `Achieve`
+* Define **GameState** enum: `AwaitingAction`, `ResolvingDogma`, `AwaitingChoice`, `GameOver`
+* Define **Choices** & **ChoiceAnswer**: `SelectCards`, `SelectPile`, `OrderCards`, `YesNo`
+* Define **Events**: `Drew`, `Melded`, `Splayed`, `Dogma`, `Scored`, `GameEnd`
+* Define core **GameData** structure with all game state
+
+# Phase 2 — Engine Core (state machine)
+
+* Implement seeded RNG (xoshiro/PCG) stored in `GameData`
+* Model `GameData` with simple arrays; cache per-player icon counts  
+* Turn/legality: 2 actions/turn, action validity, achievement thresholds
+* **State Machine API:**
+
+  * `processAction(state, action) → GameResult`
+  * `processChoice(state, answer) → GameResult` 
+  * `getLegalActions(state, player)`, `expandChoice(choice)`
+  * `GameResult` has `newState`, `events`, `nextPhase`, `pendingChoice?`
+* Simple serializer: `JSON.stringify/parse` initially
+* Every mutation emits Events for UI/debugging
 
 **DoD Phase 2**
 
 * Deterministic replay: `seed + [Action/ChoiceAnswer...]` reproduces identical Events
 * Golden test: scripted game reaches same final state hash reliably
 
-# Phase 3 — Effect Execution & Primitives (effect stack)
+# Phase 3 — Card Effects & Architecture Validation
 
-* Implement **effect primitives** (data-only):
-  `SelectCards`, `MoveFromSelection`, `DrawHighest`, `Splay`, `MoveCard`, `ConditionalSplay`
-  *(Optionally add tiny control ops later: `While(pred, body)`, `ForEach(list, body)`)*
-* Build the **effect runner/queue (drain loop)**:
-
-  * Pops effects, performs mutations, emits Events
-  * On `Select*` → returns `NeedChoice` and saves `{ stack, selections, waiting }` in `state.pending`
-  * On resume → stores answer, continues until `Done`
-* Centralize symbol comparisons (most/least/at-least, tie rules)
-* Implement the functionality of all the cards from age 1. Note that you can read the existing visual basic implementation for a reference, though the architecture is quite different.
+* Implement **direct state manipulation** approach:
+  Simple functions like `drawCard()`, `meldCard()`, `splayColor()`, `scoreCard()`
+* Build **dogma resolution framework**:
+  
+  * Card handlers that directly modify state
+  * Return `DogmaResult` with state changes, events, pending choices
+  * Handle sharing/demand logic in resolvers
+* Centralize symbol comparisons (most/least/at-least, tie rules)  
+* **Implement 2-3 representative Age 1 cards** for architecture validation:
+  * Start with simple card (e.g., basic draw/meld effect)
+  * Add medium complexity card (e.g., conditional splay)
+  * Add complex card (e.g., demand with choices)
+  * Validate that state machine handles all card types correctly
 * Ensure Events include `source` (card/rule) for explainability
 
 **DoD Phase 3**
 
+* Representative cards working end-to-end (action → choice → resolution)
+* Architecture validated with different complexity levels
 * Cards produce standardized Choices (UI renders without special-casing)
 * Logs human-readable via message keys + params
 
-# Phase 4 — Testing & Stability
+# Phase 4 — Comprehensive Testing & Validation
 
-* Golden tests for sample cards (inputs → Events snapshot)
-* Property tests:
-
+* **Unit Tests**:
+  * Test each card handler in isolation
+  * Test state machine transitions
+  * Test error handling and validation functions
+* **Integration Tests**:
+  * End-to-end game flows with representative cards
+  * Multi-turn scenarios with state persistence
+  * Choice/answer cycles working correctly
+* **Property Tests** (automated invariant checking):
   * Card conservation (deck+hands+board+score constant)
-  * Icon cache == recomputed icons
-  * Unique dominations
-* Fuzz: random playouts (N games, no throws, termination guaranteed)
-* Add `LOG_MIN` vs `LOG_DEBUG` modes
+  * Icon cache consistency (cached == recomputed icons)
+  * Unique achievements (no duplicates claimed)
+  * Turn counter correctness
+  * RNG determinism (same seed → same results)
+* **Golden Tests** (regression protection):
+  * Record complete game scenarios as expected outputs
+  * Scripted games with known card interactions
+  * Serialize/deserialize round-trip testing
+* **Fuzz Testing** (stability):
+  * Random valid action sequences
+  * Invalid input handling
+  * Long game sessions (memory leaks, performance)
+  * Edge case discovery
+* **Performance Testing**:
+  * Action processing speed benchmarks
+  * Memory usage in long games
+  * Serialization/deserialization performance
+
+**DoD Phase 4**
+
+* 90%+ test coverage on core engine
+* Property tests passing consistently
+* Fuzz tests running 1000+ games without crashes
+* Performance baselines established
 
 # Phase 5 — UI (Svelte or vanilla)
 
