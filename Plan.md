@@ -2,55 +2,55 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 
 **Note**: Throughout implementation, use the vb-implementation directory as a behavioral reference for card effects and rule implementations. The VB code has working implementations of all card effects and edge cases - adapt these to the new architecture but maintain the same game behavior.
 
-# Phase 0 — Repo & Workspace
+# ✅ Phase 0 — Repo & Workspace (COMPLETED)
 
-* Create single TypeScript package with clear module structure
+* ✅ Create single TypeScript package with clear module structure
   `/src/engine`, `/src/ui`, `/src/bot`, `/src/types`, `/src/cards`
-* Enable TypeScript strict, ESLint, Prettier
-* Add Vitest for testing + coverage
-* Simple build setup with Vite
+* ✅ Enable TypeScript strict, ESLint, Prettier
+* ✅ Add Vitest for testing + coverage
+* ✅ Simple build setup with Vite
 
-# Phase 0.5 — Card Database Preparation
+# ✅ Phase 0.5 — Card Database Preparation (COMPLETED)
 
-* **Extract card database from VB implementation**:
-  * Convert VB card metadata to TypeScript/JSON format
-  * Include basic info: name, age, color, icons, dogma text
-  * Focus on Ages 1-3 for MVP scope
-* **Select representative test cards**:
-  * Choose 2-3 Age 1 cards with different complexity levels
-  * Simple: Basic draw/meld effects
-  * Medium: Conditional effects or splaying
-  * Complex: Multi-step effects or demands
-* **Reference implementation patterns** (as needed):
-  * Look at VB card handlers when implementing specific cards
-  * Use FAQ file to resolve specific questions that arise
+* ✅ **Extract card database from VB implementation**:
+  * ✅ Convert VB card metadata to TypeScript/JSON format (35 cards Ages 1-3)
+  * ✅ Include basic info: name, age, color, icons, dogma text
+  * ✅ Focus on Ages 1-3 for MVP scope
+* ✅ **Select representative test cards**:
+  * ✅ Choose 3 Age 1 cards with different complexity levels
+  * ✅ Simple: Writing (basic draw)
+  * ✅ Medium: Code of Laws (conditional + choice)
+  * ✅ Complex: Oars (demand with fallback)
+* ✅ **Reference implementation patterns**:
+  * ✅ Created card types with helper functions
+  * ✅ Structured for easy VB reference lookup
 
-**DoD Phase 0.5**
-* Card database ready for Ages 1-3
-* Test cards selected for architecture validation
+**DoD Phase 0.5** ✅
+* ✅ Card database ready for Ages 1-3 (35 cards)
+* ✅ Test cards selected for architecture validation
 
-# Phase 1 — Core Types & State Machine
+# ✅ Phase 1 — Core Types & State Machine (COMPLETED)
 
-* Define IDs: `PlayerID`, `CardID`, `Color`, `Icon` (numeric where possible)  
-* Define **Actions**: `Draw`, `Meld`, `Dogma`, `Achieve`
-* Define **GameState** enum: `AwaitingAction`, `ResolvingDogma`, `AwaitingChoice`, `GameOver`
-* Define **Choices** & **ChoiceAnswer**: `SelectCards`, `SelectPile`, `OrderCards`, `YesNo`
-* Define **Events**: `Drew`, `Melded`, `Splayed`, `Dogma`, `Scored`, `GameEnd`
-* Define core **GameData** structure with all game state
+* ✅ Define IDs: `PlayerID`, `CardID`, `Color`, `Icon` with strict typing
+* ✅ Define **Actions**: `Draw`, `Meld`, `Dogma`, `Achieve` with parameters
+* ✅ Define **GameState** enum: `AwaitingAction`, `ResolvingDogma`, `AwaitingChoice`, `CheckingWinConditions`, `GameOver`
+* ✅ Define **Choices** & **ChoiceAnswer**: `SelectCards`, `SelectPile`, `OrderCards`, `YesNo`, `SelectPlayer`
+* ✅ Define **Events**: Complete event system with 14 event types for replay
+* ✅ Define core **GameData** structure with RNG state, caching, and validation
 
-# Phase 2 — Engine Core (state machine)
+# 🚧 Phase 2 — Engine Core (state machine) (IN PROGRESS)
 
-* Implement seeded RNG (xoshiro/PCG) stored in `GameData`
-* Model `GameData` with simple arrays; cache per-player icon counts  
-* Turn/legality: 2 actions/turn, action validity, achievement thresholds
-* **State Machine API:**
+* 🚧 Implement seeded RNG (xoshiro/PCG) stored in `GameData`
+* ⏳ Model `GameData` with simple arrays; cache per-player icon counts  
+* ⏳ Turn/legality: 2 actions/turn, action validity, achievement thresholds
+* ⏳ **State Machine API:**
 
   * `processAction(state, action) → GameResult`
   * `processChoice(state, answer) → GameResult` 
   * `getLegalActions(state, player)`, `expandChoice(choice)`
   * `GameResult` has `newState`, `events`, `nextPhase`, `pendingChoice?`
-* Simple serializer: `JSON.stringify/parse` initially
-* Every mutation emits Events for UI/debugging
+* ⏳ Simple serializer: `JSON.stringify/parse` initially
+* ⏳ Every mutation emits Events for UI/debugging
 
 **DoD Phase 2**
 
