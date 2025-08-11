@@ -1,5 +1,7 @@
 Here's a cleaned-up plan that uses a **simplified state machine** architecture instead of complex effect queues.
 
+**Note**: Throughout implementation, use the vb-implementation directory as a behavioral reference for card effects and rule implementations. The VB code has working implementations of all card effects and edge cases - adapt these to the new architecture but maintain the same game behavior.
+
 # Phase 0 — Repo & Workspace
 
 * Create single TypeScript package with clear module structure
@@ -70,6 +72,10 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Add medium complexity card (e.g., conditional splay)
   * Add complex card (e.g., demand with choices)
   * Validate that state machine handles all card types correctly
+* **Reference implementation guidance**:
+  * Use vb-implementation card handlers as behavioral reference
+  * Check Functions.vb for card effect implementations and edge cases
+  * Adapt logic patterns to new state machine architecture (better structure!)
 * Ensure Events include `source` (card/rule) for explainability
 
 **DoD Phase 3**
