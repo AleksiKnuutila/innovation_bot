@@ -206,39 +206,19 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 
 # Phase 4 — Comprehensive Testing & Validation
 
-* **Unit Tests**:
-  * Test each card handler in isolation
-  * Test state machine transitions
-  * Test error handling and validation functions
-* **Integration Tests**:
-  * End-to-end game flows with representative cards
-  * Multi-turn scenarios with state persistence
-  * Choice/answer cycles working correctly
-* **Property Tests** (automated invariant checking):
+* **Property Tests** (automated invariant checking - HIGH PRIORITY):
   * Card conservation (deck+hands+board+score constant)
   * Unique achievements (no duplicates claimed)
   * Turn counter correctness
   * RNG determinism (same seed → same results)
-* **Golden Tests** (regression protection):
-  * Record complete game scenarios as expected outputs
-  * Scripted games with known card interactions
-  * Serialize/deserialize round-trip testing
-* **Fuzz Testing** (stability):
-  * Random valid action sequences
-  * Invalid input handling
-  * Long game sessions (memory leaks, performance)
-  * Edge case discovery
-* **Performance Testing**:
-  * Action processing speed benchmarks
-  * Memory usage in long games
-  * Serialization/deserialization performance
+  * Game state consistency (no invalid states reachable)
+  * Action legality (all actions produced are valid)
 
 **DoD Phase 4**
 
-* 90%+ test coverage on core engine
-* Property tests passing consistently
-* Fuzz tests running 1000+ games without crashes
-* Performance baselines established
+* Property tests passing consistently (HIGH PRIORITY)
+* Core game invariants validated automatically
+* Engine stability verified through invariant checking
 
 # Phase 5 — UI (Svelte or vanilla)
 
@@ -260,6 +240,15 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Cross-browser compatibility testing
   * Mobile responsiveness testing
   * Test error states and loading states in UI
+  * **Additional Testing (moved from Phase 4):**
+  * Golden Tests (regression protection):
+    * Record complete game scenarios as expected outputs
+    * Scripted games with known card interactions
+    * Serialize/deserialize round-trip testing
+  * Fuzz Testing (stability):
+    * Random valid action sequences
+    * Invalid input handling
+    * Edge case discovery
 
 **DoD Phase 5**
 
@@ -267,6 +256,8 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * **Integration tests cover complete user workflows**
 * **Visual regression tests prevent UI breakage**
 * **Accessibility standards met (WCAG 2.1 AA)**
+* **Golden tests prevent regression in card behavior**
+* **Fuzz tests running 1000+ games without crashes**
 
 # Phase 6 — Bot (in a Web Worker)
 
