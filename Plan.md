@@ -220,30 +220,30 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * Core game invariants validated automatically
 * Engine stability verified through invariant checking
 
-# Phase 5 — Simple Random Bot (Before UI)
+# ✅ Phase 5 — Simple Random Bot (Before UI) (COMPLETED)
 
 * **Bot Architecture**:
-  * Create `/src/bot/` directory with extensible bot framework
-  * Implement `RandomBot` class with stateless decision-making
-  * Design shared bot interface for easy bot swapping
-  * Bot follows stepper pattern: Action → Choice → Choice → Done
+  * ✅ Create `/src/bot/` directory with extensible bot framework
+  * ✅ Implement `RandomBot` class with stateless decision-making
+  * ✅ Design shared bot interface for easy bot swapping
+  * ✅ Bot follows stepper pattern: Action → Choice → Choice → Done
 * **Core Bot Implementation**:
-  * `decideAction(gameState, playerId)` - randomly selects from legal actions
-  * `decideChoice(gameState, choice)` - randomly selects from valid choices
-  * Uses game's seeded RNG for deterministic behavior
-  * Handles all choice types (yes_no, select_cards, select_pile, etc.)
+  * ✅ `decideAction(gameState, playerId)` - randomly selects from legal actions
+  * ✅ `decideChoice(gameState, choice)` - randomly selects from valid choices
+  * ✅ Uses game's seeded RNG for deterministic behavior
+  * ✅ Handles all choice types (yes_no, select_cards, select_pile, etc.)
 * **Bot Testing Infrastructure**:
-  * Unit tests for bot decision logic and choice handling
-  * Integration tests for bot vs bot games (1000+ games)
-  * Performance tests (response time under 200ms)
-  * Test bot produces valid moves in 100% of scenarios
+  * ✅ Unit tests for bot decision logic and choice handling
+  * ✅ Integration tests for bot vs bot games (1000+ games)
+  * ✅ Performance tests (response time under 200ms)
+  * ✅ Test bot produces valid moves in 100% of scenarios
 * **Bot Integration & Validation**:
-  * Ensure bot follows stepper pattern correctly
-  * Validate bot produces only legal actions/choices
-  * Test bot against existing game engine tests
-  * Add bot-specific error handling and logging
+  * ✅ Ensure bot follows stepper pattern correctly
+  * ✅ Validate bot produces only legal actions/choices
+  * ✅ Test bot against existing game engine tests
+  * ✅ Add bot-specific error handling and logging
 
-**DoD Phase 5**
+**DoD Phase 5** ✅ **COMPLETE**
 
 * Bot can play complete games against itself
 * Bot produces valid moves in 100% of test scenarios
@@ -261,28 +261,15 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Tableaus with splay indicators, hands, scores, icon tallies
   * Action bar from `legalActions(state, you)`
   * **Choice prompt** driven by stepper:
-
     * Call `startAction(...)` → if `NeedChoice`, show prompt
     * On click, call `resumeWithAnswer(...)` until `Done`
   * Event log (scrolling list)
+  * When choosing eg. cards, highlight the valid options in the UI
 * Keep state local or a tiny Svelte store; no extra libs
 * **Phase 6 Testing Requirements:**
   * Component unit tests (render correctness, event handling)
   * Integration tests for user interaction flows (draw → meld → dogma)
-  * Visual regression tests for UI consistency
-  * Accessibility testing (keyboard navigation, screen readers)
-  * Cross-browser compatibility testing
-  * Mobile responsiveness testing
   * Test error states and loading states in UI
-  * **Additional Testing (moved from Phase 4):**
-  * Golden Tests (regression protection):
-    * Record complete game scenarios as expected outputs
-    * Scripted games with known card interactions
-    * Serialize/deserialize round-trip testing
-  * Fuzz Testing (stability):
-    * Random valid action sequences
-    * Invalid input handling
-    * Edge case discovery
 
 **DoD Phase 6**
 
@@ -381,3 +368,14 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * **Memory usage remains stable in 24+ hour simulations**
 * **All existing tests pass after performance optimizations**
 * **Target performance metrics achieved (e.g., 1000+ games/second)**
+
+
+Phase 11: Final tests?
+  * Golden Tests (regression protection):
+    * Record complete game scenarios as expected outputs
+    * Scripted games with known card interactions
+    * Serialize/deserialize round-trip testing
+  * Fuzz Testing (stability):
+    * Random valid action sequences
+    * Invalid input handling
+    * Edge case discovery
