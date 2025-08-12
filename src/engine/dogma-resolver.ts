@@ -91,7 +91,27 @@ export function executeDogmaEffect(
     return effectFunction(context, activeEffect.effectState);
   } else {
     // Start new effect with initial state
-    const initialState = { step: 'start' };
+    let initialState: any;
+    
+    // Provide appropriate initial state for each card
+    switch (cardKey) {
+      case 'writing':
+        initialState = { step: 'start' };
+        break;
+      case 'codeOfLaws':
+        initialState = { step: 'check_condition' };
+        break;
+      case 'oars':
+        initialState = { 
+          step: 'execute_demand', 
+          affectedPlayers: [], 
+          currentPlayerIndex: 0 
+        };
+        break;
+      default:
+        initialState = { step: 'start' };
+    }
+    
     return effectFunction(context, initialState);
   }
 }
@@ -130,7 +150,7 @@ export function processDogmaAction(
   };
   
   // Execute the effect for the activating player
-  const result = executeDogmaEffect(context, activatingPlayer);
+  const result = executeDogmaEffect(currentContext, activatingPlayer);
   
   // Handle the result
   switch (result.type) {

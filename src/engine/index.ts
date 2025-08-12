@@ -24,10 +24,11 @@ export {
 
 export { 
   registerCardEffect, 
-  getCardEffectHandler, 
+  getCardEffectFunction, 
   processDogmaAction,
   createDogmaContext,
-  executeDogmaEffect
+  executeDogmaEffect,
+  resumeDogmaExecution
 } from './dogma-resolver.js';
 
 export { 
