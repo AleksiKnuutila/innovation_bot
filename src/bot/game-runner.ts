@@ -69,10 +69,6 @@ export async function runBotVsBotGame(config: BotGameConfig): Promise<BotGameRes
       const currentPlayer = currentState.phase.currentPlayer;
       const currentBot = currentPlayer === 0 ? config.bot0 : config.bot1;
 
-      if (config.verbose) {
-        console.log(`[GameRunner] Turn ${turnsPlayed + 1}, Player ${currentPlayer}'s turn (${currentBot.getName()})`);
-      }
-
       // Process actions for this turn
       let actionsThisTurn = 0;
       const actionsPerTurn = turnsPlayed === 0 && currentPlayer === 0 ? 1 : 2; // First player gets 1 action on first turn
@@ -82,10 +78,6 @@ export async function runBotVsBotGame(config: BotGameConfig): Promise<BotGameRes
           // Bot decides on action
           const action = currentBot.decideAction(currentState, currentPlayer);
           
-          if (config.verbose) {
-            console.log(`[GameRunner] Player ${currentPlayer} chose action: ${action.type}`);
-          }
-
           // Process the action
           const result = processAction(currentState, action);
           currentState = result.newState;
@@ -97,17 +89,9 @@ export async function runBotVsBotGame(config: BotGameConfig): Promise<BotGameRes
             const choice = pendingChoice;
             const choiceBot = choice.playerId === 0 ? config.bot0 : config.bot1;
 
-            if (config.verbose) {
-              console.log(`[GameRunner] Player ${choice.playerId} needs to make choice: ${choice.type}`);
-            }
-
             // Bot decides on choice
             const choiceAnswer = choiceBot.decideChoice(currentState, choice);
             
-            if (config.verbose) {
-              console.log(`[GameRunner] Player ${choice.playerId} chose:`, choiceAnswer);
-            }
-
             // Process the choice
             const choiceResult = processChoice(currentState, choiceAnswer);
             currentState = choiceResult.newState;

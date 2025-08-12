@@ -1,7 +1,6 @@
 // Representative Age 1 cards selected for architecture validation
 // These cards demonstrate different complexity levels and mechanics
 
-import type { CardId } from '@/types/cards.js';
 import { CARDS } from './database.js';
 
 // Selected test cards for Phase 3 implementation

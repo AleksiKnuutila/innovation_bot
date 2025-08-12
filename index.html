@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Innovation - Digital Board Game</title>
+  <meta name="description" content="Digital implementation of Carl Chudyk's Innovation board game" />
+  <style>
+    /* Basic reset and global styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #333;
+      min-height: 100vh;
+      overflow-x: auto;
+    }
+    
+    #app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Svelte will render here -->
+  </div>
+  
+  <script type="module" src="/src/ui/main.ts"></script>
+</body>
+</html> 

@@ -1,19 +1,18 @@
 // Card effect handlers using callback-based state machine pattern
 
 import type { 
-  DogmaContext, 
-  CardEffectFunction, 
-  EffectResult 
+  EffectResult,
+  DogmaContext
 } from '../types/dogma.js';
-import type { GameData, PlayerId } from '../types/index.js';
+import type { PlayerId } from '../types/index.js';
 import type { GameEvent } from '../types/events.js';
 import type { YesNoChoice, SelectCardsChoice } from '../types/choices.js';
 import { emitEvent } from '../engine/events.js';
 import { 
   drawCard, 
+  scoreCard, 
   tuckCard, 
   transferCard, 
-  scoreCard,
   countIcons
 } from '../engine/state-manipulation.js';
 import { CARDS } from './database.js';
@@ -29,7 +28,7 @@ interface WritingState {
 export function writingEffect(
   context: DogmaContext, 
   state: WritingState, 
-  choiceAnswer?: any
+  _choiceAnswer?: any
 ): EffectResult {
   const { gameData, activatingPlayer } = context;
   
@@ -76,7 +75,7 @@ interface CodeOfLawsState {
 export function codeOfLawsEffect(
   context: DogmaContext, 
   state: CodeOfLawsState, 
-  choiceAnswer?: any
+  _choiceAnswer?: any
 ): EffectResult {
   const { gameData, activatingPlayer } = context;
   
@@ -131,7 +130,7 @@ export function codeOfLawsEffect(
     }
     
     case 'waiting_choice': {
-      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+      if (!_choiceAnswer || _choiceAnswer.type !== 'yes_no') {
         throw new Error('Expected yes/no choice answer');
       }
       
@@ -141,7 +140,7 @@ export function codeOfLawsEffect(
         throw new Error('Activating player not found in state');
       }
       
-      if (!choiceAnswer.answer) {
+      if (!_choiceAnswer.answer) {
         // Player chose no - effect completes without action
         const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
           playerId: storedActivatingPlayer,
@@ -206,7 +205,7 @@ interface OarsState {
 export function oarsEffect(
   context: DogmaContext, 
   state: OarsState, 
-  choiceAnswer?: any
+  _choiceAnswer?: any
 ): EffectResult {
   const { gameData, activatingPlayer } = context;
   
@@ -315,11 +314,11 @@ export function oarsEffect(
     }
     
     case 'waiting_transfer_choice': {
-      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+      if (!_choiceAnswer || _choiceAnswer.type !== 'select_cards') {
         throw new Error('Expected card selection choice answer');
       }
       
-      const selectedCards = choiceAnswer.selectedCards;
+      const selectedCards = _choiceAnswer.selectedCards;
       if (selectedCards.length === 0) {
         throw new Error('No cards selected');
       }
@@ -408,11 +407,11 @@ export function oarsEffect(
     }
     
     case 'waiting_draw_choice': {
-      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+      if (!_choiceAnswer || _choiceAnswer.type !== 'yes_no') {
         throw new Error('Expected yes/no choice answer');
       }
       
-      if (!choiceAnswer.answer) {
+      if (!_choiceAnswer.answer) {
         // Player chose no - effect completes without additional action
         const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
           playerId: context.activatingPlayer,

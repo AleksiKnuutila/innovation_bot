@@ -5,7 +5,7 @@ import type { Action } from '@/types/actions.js';
 import type { Choice, ChoiceAnswer } from '@/types/choices.js';
 import type { GameEvent } from '@/types/events.js';
 import type { PlayerId } from '@/types/core.js';
-import { isActionLegal, getLegalActions, advanceTurn, checkAchievementVictory } from './legality.js';
+import { isActionLegal, getLegalActions, advanceTurn } from './legality.js';
 import { DeterministicRng } from './rng.js';
 import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';

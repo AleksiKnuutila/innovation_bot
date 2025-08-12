@@ -6,19 +6,16 @@ import type {
   PlayerBoard,
   PlayerColorStack,
   SharedState,
-  SupplyPile,
- 
+  SupplyPile
 } from '@/types/game-data.js';
 import type { GamePhase } from '@/types/game-state.js';
-import type { CardId, PlayerId, Color, AchievementId, SpecialAchievementId } from '@/types/core.js';
+import type { CardId, PlayerId, Color } from '@/types/core.js';
 import type { EventLog } from '@/types/events.js';
 import { CARDS } from '@/cards/database.js';
 import { DeterministicRng } from './rng.js';
-import { generateGameId } from './utils.js';
 
 // Initialize a new game with setup options
 export function initializeGame(options: GameSetupOptions): GameData {
-  const gameId = options.gameId || generateGameId();
   const rng = new DeterministicRng(options.rngSeed);
   
   // Create supply piles for ages 1-10

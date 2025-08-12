@@ -1,10 +1,9 @@
 // Types for callback-based state machine pattern for card effects
 
+import type { PlayerId } from './core.js';
 import type { GameData } from './game-data.js';
 import type { Choice, ChoiceAnswer } from './choices.js';
 import type { GameEvent } from './events.js';
-import type { GameState } from './game-state.js';
-import type { PlayerId } from './core.js';
 
 // The contract every card effect follows
 export interface CardEffectFunction {

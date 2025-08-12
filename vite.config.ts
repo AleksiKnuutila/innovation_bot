@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [svelte()],
+  base: './', // Use relative paths for file:// URLs
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -15,9 +16,15 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'es2022',
     outDir: 'dist',
-    sourcemap: true,
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+      },
+    },
   },
   server: {
     port: 3000,

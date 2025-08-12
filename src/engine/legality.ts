@@ -245,7 +245,7 @@ function validateNormalAchievement(gameData: GameData, playerId: PlayerId, achie
 }
 
 // Validate special achievement (simplified - would need full condition checking)
-function validateSpecialAchievement(gameData: GameData, playerId: PlayerId, achievementId: SpecialAchievementId): LegalityResult {
+function validateSpecialAchievement(gameData: GameData, _playerId: PlayerId, achievementId: SpecialAchievementId): LegalityResult {
   // Check if achievement is available
   if (!gameData.shared.availableSpecialAchievements.includes(achievementId)) {
     return { legal: false, reason: 'Special achievement not available', code: 'ACHIEVEMENT_TAKEN' };

@@ -298,7 +298,7 @@ export function expandChoice(choice: Choice, gameState: import('./game-data.js')
 /**
  * Get available cards from a zone reference
  */
-function getAvailableCardsFromZone(zoneRef: ZoneRef, player: any, gameState: import('./game-data.js').GameData): number[] {
+function getAvailableCardsFromZone(zoneRef: ZoneRef, player: any, _gameState: import('./game-data.js').GameData): number[] {
   switch (zoneRef.zone) {
     case 'hand':
       return player.hands;

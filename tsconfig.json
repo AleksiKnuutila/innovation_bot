@@ -9,6 +9,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "preserve",
+    "types": ["svelte", "node"],
 
     /* Type Checking */
     "strict": true,
@@ -32,6 +33,6 @@
       "@/bot/*": ["./src/bot/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.svelte"],
   "exclude": ["node_modules", "dist", "vb-implementation"]
 }

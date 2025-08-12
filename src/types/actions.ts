@@ -1,7 +1,7 @@
 // Action types for Innovation game engine
 // Actions represent the top-level choices a player makes on their turn
 
-import type { CardId, Color, AchievementId, SpecialAchievementId } from './core.js';
+import type { CardId, AchievementId, SpecialAchievementId } from './core.js';
 
 // Base action interface
 interface BaseAction {

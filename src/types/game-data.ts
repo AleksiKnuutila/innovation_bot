@@ -7,8 +7,7 @@ import type {
   AchievementId, 
   SpecialAchievementId,
   SplayDirection,
-  GameId,
-  TurnNumber
+  GameId
 } from './core.js';
 import type { GamePhase } from './game-state.js';
 import type { EventLog } from './events.js';
