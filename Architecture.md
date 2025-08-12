@@ -741,3 +741,107 @@ describe('Code of Laws Effect', () => {
 3. **Choice Handling**: Test both with and without choice answers
 4. **Edge Cases**: Easy to test different game states and conditions
 5. **Regression Prevention**: State transitions are explicit and testable
+
+# 12. Validation & Errors
+
+- All public validators return **error codes** (enums) plus fields for explanation. UI localizes.
+- Illegal Action/Choice does not mutate state; return `{ errors: [...] }`.
+
+# 13. UI Architecture & Component Design
+
+## Phase 6: Svelte UI Implementation
+
+### Component Architecture
+
+The UI follows a **component-based architecture** that integrates seamlessly with the engine's stepper pattern:
+
+```
+src/ui/
+├── App.svelte              # Main app container and game state management
+├── components/
+│   ├── GameBoard.svelte    # Main game area with player tableaus
+│   ├── PlayerTableau.svelte # Individual player's cards, achievements, icons
+│   ├── ActionBar.svelte    # Draw/Meld/Dogma/Achieve buttons from legalActions
+│   ├── ChoicePrompt.svelte # Handle pending choices from stepper
+│   ├── EventLog.svelte     # Scrolling event history with time travel
+│   └── Card.svelte         # Individual card display with splay indicators
+└── stores/
+    └── gameStore.ts        # Minimal Svelte store for UI state only
+```
+
+### Stepper Pattern Integration
+
+The UI integrates with the engine's stepper pattern through a **reactive state flow**:
+
+1. **Action Phase**: UI shows `legalActions(state, currentPlayer)` as buttons
+2. **Choice Phase**: If `pendingChoice` exists, UI shows `ChoicePrompt` component
+3. **Resolution**: UI calls `processChoice()` until `pendingChoice` is null
+4. **Update**: UI re-renders based on new game state and events
+
+### State Management Principles
+
+- **Single Source of Truth**: Game state comes entirely from the engine
+- **UI State Only**: Svelte store contains only UI-specific data (selections, animations)
+- **Reactive Updates**: UI automatically re-renders when engine state changes
+- **No Drift**: UI state cannot diverge from engine state
+
+### Component Responsibilities
+
+#### `App.svelte`
+- Manages game state and engine integration
+- Handles the stepper loop (Action → Choice → Done)
+- Coordinates between engine and child components
+- Manages game initialization and cleanup
+
+#### `GameBoard.svelte`
+- Renders the main game area
+- Manages player tableaus and game flow
+- Handles game-wide interactions
+
+#### `PlayerTableau.svelte`
+- Displays individual player's cards, achievements, and icons
+- Shows splay directions and card visibility
+- Handles card interactions (clicking, hovering)
+
+#### `ActionBar.svelte`
+- Renders action buttons based on `legalActions(state, currentPlayer)`
+- Disables invalid actions
+- Triggers action processing through the stepper
+
+#### `ChoicePrompt.svelte`
+- Handles all choice types (yes_no, select_cards, select_pile, etc.)
+- Uses `expandChoice()` to show valid options
+- Highlights valid choices and prevents invalid selections
+
+#### `EventLog.svelte`
+- Displays game history as scrollable list
+- Supports time travel (jump to specific event)
+- Shows event details with human-readable messages
+
+#### `Card.svelte`
+- Renders individual cards with proper styling
+- Shows splay indicators (left, right, up)
+- Displays card information (name, age, color, icons)
+
+### Visual Design Principles
+
+- **Card-Game Style**: Clean, colorful design appropriate for Innovation
+- **Splay Indicators**: Clear visual representation of card splaying
+- **Icon Visibility**: Icons are only shown when visible due to splaying
+- **Responsive Layout**: Works on different screen sizes
+- **Accessibility**: Proper contrast, keyboard navigation, screen reader support
+
+### Testing Strategy
+
+- **Component Unit Tests**: Test individual component behavior
+- **Integration Tests**: Test complete user workflows
+- **Stepper Integration Tests**: Verify choice handling works correctly
+- **Visual Consistency**: Ensure UI matches game state accurately
+- **Performance Tests**: Verify smooth 60fps rendering
+
+### Future Enhancements
+
+- **Animations**: Smooth transitions between game states
+- **Sound Effects**: Audio feedback for actions and choices
+- **Themes**: Multiple visual themes for different preferences
+- **Mobile Support**: Touch-friendly interface for mobile devices

@@ -254,26 +254,47 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * ✅ Bot uses seeded RNG for deterministic behavior
 * ✅ All existing tests still pass with bot integration
 
-# Phase 6 — UI (Svelte or vanilla)
+# Phase 6 — UI (Svelte)
 
-* Render:
+* **Framework**: Use Svelte 4 (already configured) for reactive game UI
+* **State Management**: Keep state local or tiny Svelte store; no extra libs
+* **Architecture**: Follow stepper pattern from engine (Action → Choice → Choice → Done)
 
-  * Tableaus with splay indicators, hands, scores, icon tallies
-  * Action bar from `legalActions(state, you)`
+* **Component Structure**:
+  * `App.svelte` - Main app container and game state management
+  * `GameBoard.svelte` - Main game area with player tableaus
+  * `PlayerTableau.svelte` - Individual player's cards, achievements, icons
+  * `ActionBar.svelte` - Draw/Meld/Dogma/Achieve buttons from `legalActions(state, you)`
+  * `ChoicePrompt.svelte` - Handle pending choices from stepper
+  * `EventLog.svelte` - Scrolling event history with time travel
+  * `Card.svelte` - Individual card display with splay indicators
+
+* **Core UI Features**:
+  * Render tableaus with splay indicators, hands, scores, icon tallies
+  * Action bar driven by `legalActions(state, you)` 
   * **Choice prompt** driven by stepper:
-    * Call `startAction(...)` → if `NeedChoice`, show prompt
-    * On click, call `resumeWithAnswer(...)` until `Done`
-  * Event log (scrolling list)
-  * When choosing eg. cards, highlight the valid options in the UI
-* Keep state local or a tiny Svelte store; no extra libs
-* **Phase 6 Testing Requirements:**
+    * Call `processAction(...)` → if `pendingChoice`, show prompt
+    * On choice, call `processChoice(...)` until `Done`
+  * Event log (scrolling list) with time travel capability
+  * When choosing cards, highlight valid options in the UI
+  * Card-game style with colors and nice visual design
+
+* **Phase 6 Testing Requirements**:
   * Component unit tests (render correctness, event handling)
   * Integration tests for user interaction flows (draw → meld → dogma)
   * Test error states and loading states in UI
+  * Test choice handling and stepper integration
+  * Test action validation and button enabling/disabling
 
 **DoD Phase 6**
-* **UI components have 50%+ test coverage**
+
+* **UI components have 80%+ test coverage**
 * **Integration tests cover complete user workflows**
+* **Choice handling works correctly with engine stepper**
+* **Action validation prevents invalid moves**
+* **Event log displays game history correctly**
+* **Visual design is polished and card-game appropriate**
+* **All existing tests still pass with UI integration**
 
 # Phase 7 — Advanced Bot
 
