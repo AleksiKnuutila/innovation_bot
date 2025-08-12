@@ -72,9 +72,11 @@ export interface GameData {
   // Current turn state
   readonly pendingChoice?: Choice;  // Set when phase.state === 'AwaitingChoice'
   
+  // Active effects for callback-based state machine
+  readonly activeEffects: import('./dogma.js').ActiveEffect[];
+  
   // Complete game history for replay and debugging
   readonly eventLog: EventLog;
-  
 }
 
 

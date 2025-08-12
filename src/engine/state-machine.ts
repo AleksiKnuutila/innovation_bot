@@ -10,6 +10,7 @@ import { DeterministicRng } from './rng.js';
 import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';
 import { CARDS } from '@/cards/database.js';
+import { processDogmaAction as processDogmaActionWithResolver, resumeDogmaExecution } from './dogma-resolver.js';
 
 // Result of processing an action or choice
 export interface GameResult {
@@ -42,7 +43,24 @@ export function processAction(gameData: GameData, action: Action): GameResult {
       break;
     case 'dogma':
       // Dogma actions are more complex and might require choices
-      return processDogmaAction(newState, action.playerId, action.cardId, events);
+      const dogmaResult = processDogmaActionWithResolver(newState, action.cardId, action.playerId);
+      
+      // Merge events from dogma resolution
+      events.push(...dogmaResult.events);
+      
+      // Check if we need to wait for a choice
+      if (dogmaResult.pendingChoice) {
+        return {
+          newState: dogmaResult.newState,
+          events,
+          nextPhase: dogmaResult.nextPhase,
+          pendingChoice: dogmaResult.pendingChoice,
+        };
+      }
+      
+      // Update state and continue
+      newState = dogmaResult.newState;
+      break;
     case 'achieve':
       newState = processAchieveAction(newState, action.playerId, action.achievementType, action.achievementId, events);
       break;
@@ -96,16 +114,25 @@ export function processChoice(gameData: GameData, choiceAnswer: ChoiceAnswer): G
     throw new Error('Choice answer from wrong player');
   }
   
-  // Process the choice answer and resume the interrupted action
-  // For now, this is a placeholder - would be implemented with specific choice handlers
+  // Check if we have active effects that need to resume
+  if (gameData.activeEffects && gameData.activeEffects.length > 0) {
+    // Resume dogma execution with the choice answer
+    const dogmaResult = resumeDogmaExecution(gameData, choiceAnswer);
+    
+    return {
+      newState: dogmaResult.newState,
+      events: dogmaResult.events,
+      nextPhase: dogmaResult.nextPhase,
+      ...(dogmaResult.pendingChoice && { pendingChoice: dogmaResult.pendingChoice }),
+    };
+  }
+  
+  // No active effects - just clear the choice and continue
   const newState = deepClone(gameData);
   const events: GameEvent[] = [];
   
   // Clear the pending choice
   (newState as any).pendingChoice = undefined;
-  
-  // Continue processing based on the choice type
-  // This would be implemented with specific choice handlers
   
   return {
     newState,
@@ -220,34 +247,6 @@ function processMeldAction(gameData: GameData, playerId: PlayerId, cardId: impor
   events.push(event);
   
   return newState;
-}
-
-// Process dogma action (simplified - would need full dogma resolution)
-function processDogmaAction(gameData: GameData, playerId: PlayerId, cardId: import('@/types/core.js').CardId, events: GameEvent[]): GameResult {
-  const card = CARDS.cardsById.get(cardId);
-  if (!card) {
-    throw new Error('Invalid card ID');
-  }
-  
-  const newState = deepClone(gameData);
-  
-  // For now, just emit the dogma activation event
-  // Full dogma resolution would be implemented in Phase 3
-  const event = emitEvent(newState, 'dogma_activated', {
-    playerId,
-    cardId,
-    iconCount: 1, // Placeholder
-    source: `dogma_${cardId}`,
-  });
-  events.push(event);
-  
-  const finalState = advanceTurn(newState);
-  
-  return {
-    newState: finalState,
-    events,
-    nextPhase: 'AwaitingAction',
-  };
 }
 
 // Process achieve action

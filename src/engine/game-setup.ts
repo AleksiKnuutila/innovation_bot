@@ -69,6 +69,7 @@ export function initializeGame(options: GameSetupOptions): GameData {
       ...shared,
       supplyPiles: updatedSupplyPiles,
     },
+    activeEffects: [], // Initialize empty active effects array
     eventLog,
   };
   

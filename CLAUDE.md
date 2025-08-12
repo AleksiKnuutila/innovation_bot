@@ -77,7 +77,7 @@ Legacy Visual Basic implementation containing:
 **Ready for Phase 3** - Card effects and architecture validation
 
 ## Commands to Remember
-- Run tests: `npm test`
-- Run tests once: `npm test -- --run`  
+- Run tests: `npm test -- --run`
+- Run tests in watch mode: `npm test`
 - Build: `npm run build`
 - Lint/typecheck: `npm run lint` and `npm run typecheck`

@@ -1,43 +1,42 @@
-// Main engine API exports
+// Engine module exports
 
-// Core engine functions
 export { processAction, processChoice, getPlayerLegalActions } from './state-machine.js';
-export type { GameResult } from './state-machine.js';
-
-// Game setup and initialization
-export { initializeGame, validateGameSetup } from './game-setup.js';
-
-// RNG system
-export { DeterministicRng, createRng, shuffleCards } from './rng.js';
-
-// Serialization
-export { 
-  serializeGame, 
-  deserializeGame, 
-  createSaveData, 
-  loadSaveData,
-  exportGameData,
-  importGameData,
-  getGameSummary
-} from './serializer.js';
-export type { SerializedGame, GameSummary } from './serializer.js';
-
-// Legality checking
+export { initializeGame } from './game-setup.js';
+export { DeterministicRng } from './rng.js';
+export { serializeGame, deserializeGame } from './serializer.js';
+export { emitEvent } from './events.js';
 export { isActionLegal, getLegalActions } from './legality.js';
-export type { LegalityResult } from './legality.js';
 
-// Event system
-export {
-  emitDrewEvent,
-  emitMeldedEvent,
-  emitSplayedEvent,
-  emitScoredEvent,
-  emitDogmaActivatedEvent,
-  emitAchievementClaimedEvent,
-  getEventsByType,
-  getEventsByPlayer,
-  getRecentEvents
-} from './events.js';
+// New Phase 3 exports
+export { 
+  drawCard, 
+  meldCard, 
+  scoreCard, 
+  tuckCard, 
+  splayColor, 
+  transferCard, 
+  returnCard,
+  getTopCard,
+  getTopCards,
+  hasIcon,
+  countIcons
+} from './state-manipulation.js';
+
+export { 
+  registerCardEffect, 
+  getCardEffectHandler, 
+  processDogmaAction,
+  createDogmaContext,
+  executeDogmaEffect
+} from './dogma-resolver.js';
+
+export { 
+  compareIcons, 
+  isPlayerAffected, 
+  getAffectedPlayers,
+  getHighestIconCount,
+  getLowestIconCount
+} from './symbol-comparison.js';
 
 
 // Utilities
