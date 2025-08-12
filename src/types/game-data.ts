@@ -50,6 +50,12 @@ export interface SupplyPile {
   readonly cards: CardId[];  // Remaining cards in this age pile
 }
 
+// Turn-based action tracking for achievements
+export interface TurnActions {
+  readonly cardsScored: CardId[];
+  readonly cardsTucked: CardId[];
+}
+
 // Complete game state
 export interface GameData {
   // Game identification and metadata
@@ -74,6 +80,9 @@ export interface GameData {
   
   // Active effects for callback-based state machine
   readonly activeEffects: import('./dogma.js').ActiveEffect[];
+  
+  // Turn-based action tracking for achievements
+  readonly turnActions?: Partial<Record<PlayerId, TurnActions>>;
   
   // Complete game history for replay and debugging
   readonly eventLog: EventLog;

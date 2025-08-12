@@ -139,7 +139,7 @@ describe('Engine Integration Tests', () => {
     
     // Illegal action should be rejected (wrong player)
     expect(() => processAction(gameData, { type: 'draw', playerId: otherPlayer }))
-      .toThrow('Illegal action');
+      .toThrow('Not your turn');
       
     // Invalid card meld should be rejected
     expect(() => processAction(gameData, { type: 'meld', playerId: currentPlayer, cardId: 99999 }))

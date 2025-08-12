@@ -287,7 +287,7 @@ export function advanceTurn(gameData: GameData): GameData {
       },
     };
   } else {
-    // Switch to other player, new turn
+    // Switch to other player, new turn - clear turn actions
     const nextPlayer = currentPlayer === 0 ? 1 : 0;
     const nextTurn = gameData.phase.turnNumber + 1;
     
@@ -299,6 +299,8 @@ export function advanceTurn(gameData: GameData): GameData {
         turnNumber: nextTurn,
         actionsRemaining: 2, // Full actions for new turn
       },
+      // Clear turn actions for the new turn
+      turnActions: undefined,
     };
   }
 }

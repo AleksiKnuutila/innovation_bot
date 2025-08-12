@@ -149,6 +149,14 @@ export interface ConditionCheckedEvent extends BaseEvent {
   readonly details?: Record<string, any>;
 }
 
+// Card revelation events
+export interface CardRevealedEvent extends BaseEvent {
+  readonly type: 'card_revealed';
+  readonly playerId: PlayerId;
+  readonly cardId: CardId;
+  readonly fromZone: ZoneRef;
+}
+
 // Union of all event types
 export type GameEvent = 
   | StartTurnEvent
@@ -166,7 +174,8 @@ export type GameEvent =
   | SharedEffectEvent
   | DrawBonusEvent
   | AchievementClaimedEvent
-  | ConditionCheckedEvent;
+  | ConditionCheckedEvent
+  | CardRevealedEvent;
 
 // Event log for storing complete game history
 export interface EventLog {

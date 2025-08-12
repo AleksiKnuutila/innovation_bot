@@ -18,6 +18,8 @@ import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';
 import { CARD_EFFECT_HANDLERS } from '../cards/effect-handlers.js';
 import { CARDS } from '../cards/database.js';
+import { countIcons } from './state-manipulation.js';
+import { autoClaimSpecialAchievements } from './achievements.js';
 
 // Global effect registry - maps card keys to effect functions
 const effectRegistry: EffectRegistry = { ...CARD_EFFECT_HANDLERS };
@@ -100,18 +102,7 @@ export function getSharingPlayers(
 
 // Count icons for a specific player (moved from effect-handlers)
 function countPlayerIcons(gameData: GameData, playerId: PlayerId, icon: string): number {
-  const player = gameData.players[playerId];
-  if (!player) return 0;
-  
-  let count = 0;
-  for (const colorStack of player.colors) {
-    for (const cardId of colorStack.cards) {
-      // TODO: Get actual card data and count icons
-      // For now, return a placeholder value
-      count += 1; // Placeholder
-    }
-  }
-  return count;
+  return countIcons(gameData, playerId, icon);
 }
 
 // Execute a dogma effect using the callback-based pattern
@@ -304,6 +295,13 @@ function processSharingEffects(
     // Check if changes were made
     if (sharingResult.events.length > 0) {
       changesMade = true;
+    }
+    
+    // Check for special achievements after sharing effects
+    const achievementResult = autoClaimSpecialAchievements(currentState, sharingPlayer);
+    if (achievementResult.claimedAchievements.length > 0) {
+      currentState = achievementResult.newState;
+      // Note: events from autoClaimSpecialAchievements are already emitted
     }
   }
   

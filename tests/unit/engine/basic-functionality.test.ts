@@ -82,7 +82,7 @@ describe('Phase 2 Engine - Basic Functionality', () => {
       
       expect(() => {
         processAction(gameData, { type: 'draw', playerId: wrongPlayer });
-      }).toThrow('Illegal action');
+      }).toThrow('Not your turn');
     });
   });
 

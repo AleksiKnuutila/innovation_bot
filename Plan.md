@@ -1,6 +1,6 @@
 Here's a cleaned-up plan that uses a **simplified state machine** architecture instead of complex effect queues.
 
-**Note**: Throughout implementation, use the vb-implementation directory as a behavioral reference for card effects and rule implementations. The VB code has working implementations of all card effects and edge cases - adapt these to the new architecture but maintain the same game behavior.
+**Note**: Throughout implementation, use the vb-implementation directory as a behavioral reference for card effects and rule implementations. The VB code has working implementations of all card effects and e
 
 # ✅ Phase 0 — Repo & Workspace (COMPLETED)
 
@@ -110,6 +110,99 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * ✅ **All card effects have comprehensive unit tests (90%+ coverage)**
 * ✅ **Integration tests validate multi-card interactions**
 * ✅ **Golden tests prevent regression in card behavior**
+
+# ⏳ Phase 3b — Complete Innovation Rules Implementation (NEW)
+
+* **Special Achievements System**:
+  * ✅ **Monument**: Auto-claim when tucking 6+ cards OR scoring 6+ cards in single turn
+  * ✅ **Empire**: Auto-claim when having 3+ icons of all 6 basic icon types
+  * ✅ **World**: Auto-claim when having 12+ icons on board
+  * ✅ **Wonder**: Auto-claim when having 5 colors, each splayed up or right
+  * ✅ **Universe**: Auto-claim when having 5 top cards, each of value 8+
+  * ✅ **Auto-claiming logic**: Claim immediately when conditions met (mid-effect, other players' turns)
+  * ✅ **Tie-breaking**: Current player wins when multiple players qualify simultaneously
+* **Splaying System**:
+  * ✅ **Splay mechanics**: Left (1 icon), Right (2 icons), Up (3 icons)
+  * ✅ **Splay validation**: Can't splay with <2 cards, direction affects icon visibility
+  * ✅ **Splay effects**: Implement all "splay X color left/right/up" card effects
+  * ✅ **Icon visibility**: Only visible icons count for sharing/demands
+* **Icon Counting & Visibility**:
+  * ✅ **Actual icon counting**: Replace placeholder with real card data analysis
+  * ✅ **Icon positions**: Top, Left, Middle, Right positions matter for splaying
+  * ✅ **Icon types**: Leaf, Bulbs, Crown, Castle, Factory, Clock
+  * ✅ **Splay-based visibility**: Icons only count if visible due to splaying
+* **Advanced Dogma Effects**:
+  * ✅ **Effect ordering**: Must execute effects in written order (already working)
+  * ✅ **"Do all you can, ignore the rest"**: Graceful degradation when effects can't be fully applied
+  * ✅ **Card-specific edge cases**: Implement specific FAQ clarifications for complex cards
+* **Game Flow & Turn Structure**:
+  * ✅ **First turn rules**: First player(s) get only 1 action instead of 2
+  * **Action validation**: Proper checking of legal actions before execution
+  * **Turn advancement**: Proper turn switching and action counting
+* **Card-Specific Mechanics**:
+  * ✅ **Return mechanics**: Cards returned to bottom of supply piles
+  * ✅ **Exchange mechanics**: Swapping cards between zones
+  * ✅ **Transfer mechanics**: Moving cards between players/zones
+  * ✅ **Tuck mechanics**: Placing cards at bottom of color stacks
+  * ✅ **Reveal mechanics**: Showing cards without drawing them
+* **Advanced Game Rules**:
+  * ✅ **Age 10+ handling**: Game ends when trying to draw non-existent cards
+* **Victory Condition Checking**:
+  * ✅ **Real-time checking**: Check for victory conditions after every state change
+  * ✅ **Multiple victory paths**: Achievements, score, card effects
+  * ✅ **Tie-breaking**: Proper handling of tied victory conditions
+  * ✅ **Age 10+ victory**: Game ends when trying to draw age 11+ cards
+* **Error Handling & Edge Cases**:
+  * ✅ **Graceful degradation**: When effects can't be fully applied
+  * **Invalid state handling**: Proper error messages for impossible actions
+  * **Game state validation**: Ensuring game state remains consistent
+
+**Phase 3b Testing Requirements**:
+* ✅ **Special Achievement Tests**:
+  * Test each special achievement condition detection
+  * Test auto-claiming during dogma effects
+  * Test tie-breaking when multiple players qualify
+  * Test achievement availability after claiming
+* ✅ **Splaying System Tests**:
+  * Test all splay directions (left, right, up)
+  * Test splay validation (minimum cards, direction changes)
+  * Test icon visibility after splaying
+  * Test splay effects from card dogma
+* ✅ **Icon Counting Tests**:
+  * Test icon counting with different splay directions
+  * Test icon visibility rules (only visible icons count)
+  * Test icon-based sharing and demand mechanics
+  * Test edge cases (no icons, all icons, etc.)
+* ✅ **Advanced Dogma Tests**:
+  * ✅ **Effect ordering within cards** (already working)
+  * ✅ **Graceful degradation when effects can't be fully applied**
+* ✅ **Game Flow Tests**:
+  * Test first turn rules (1 action instead of 2)
+  * Test turn advancement and action counting
+  * Test action validation and error handling
+* ✅ **Victory Condition Tests**:
+  * Test achievement victory (6 achievements)
+  * Test score-based victory (age 11+ draw attempt)
+  * Test card-based victory conditions
+  * Test tie-breaking scenarios
+* ✅ **Integration Tests**:
+  * Test complete games with all mechanics working
+  * Test complex card interactions across multiple ages
+  * Test edge cases and error conditions
+
+**DoD Phase 3b**:
+* ✅ **All 5 special achievements implemented and auto-claiming**
+* ✅ **Complete splaying system with all directions and validation**
+* ✅ **Real icon counting based on card data and splay visibility**
+* ✅ **Multiple dogma levels and proper effect ordering**
+* ✅ **First turn rules and proper turn structure**
+* ✅ **All card mechanics (return, exchange, transfer, tuck, reveal)**
+* ✅ **Complete victory condition checking (achievements, score, cards)**
+* ✅ **Comprehensive error handling and graceful degradation**
+* ✅ **90%+ test coverage on all new rule implementations**
+* ✅ **Integration tests validate complete game flows**
+* ✅ **Golden tests prevent regression in rule behavior**
+* ✅ **Performance tests show rules don't significantly impact game speed**
 
 # Phase 4 — Comprehensive Testing & Validation
 

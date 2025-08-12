@@ -11,6 +11,7 @@ import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';
 import { CARDS } from '@/cards/database.js';
 import { processDogmaAction as processDogmaActionWithResolver, resumeDogmaExecution } from './dogma-resolver.js';
+import { checkVictoryConditions } from './victory-conditions.js';
 
 // Result of processing an action or choice
 export interface GameResult {
@@ -19,14 +20,28 @@ export interface GameResult {
   readonly nextPhase: import('@/types/game-state.js').GameState;
   readonly pendingChoice?: Choice;
   readonly winner?: PlayerId | null; // Set if game ended
+  readonly winCondition?: import('@/types/core.js').WinCondition | null; // How the game was won
 }
 
-// Process a player action through the state machine
+// Process a player action and return the new game state
 export function processAction(gameData: GameData, action: Action): GameResult {
-  // Validate action legality
+  // Check victory conditions at the start
+  const initialVictoryCheck = checkVictoryConditions(gameData);
+  if (initialVictoryCheck.winner !== null) {
+    return {
+      newState: gameData,
+      events: [],
+      nextPhase: 'GameOver',
+      winner: initialVictoryCheck.winner,
+      winCondition: initialVictoryCheck.condition
+    };
+  }
+
+  // Validate that the action is legal
   const legalityCheck = isActionLegal(gameData, action);
   if (!legalityCheck.legal) {
-    throw new Error(`Illegal action: ${legalityCheck.reason} (${legalityCheck.code})`);
+    // Throw error for illegal actions - this is what the tests expect
+    throw new Error(legalityCheck.reason || 'Action is not legal');
   }
   
   // Start with a copy of the game state
@@ -68,8 +83,8 @@ export function processAction(gameData: GameData, action: Action): GameResult {
   
   
   // Check for win conditions
-  const winner = checkAchievementVictory(newState);
-  if (winner !== null) {
+  const finalVictoryCheck = checkVictoryConditions(newState);
+  if (finalVictoryCheck.winner !== null) {
     newState = {
       ...newState,
       phase: {
@@ -82,7 +97,8 @@ export function processAction(gameData: GameData, action: Action): GameResult {
       newState,
       events,
       nextPhase: 'GameOver',
-      winner,
+      winner: finalVictoryCheck.winner,
+      winCondition: finalVictoryCheck.condition,
     };
   }
   
