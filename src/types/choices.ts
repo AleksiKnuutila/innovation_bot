@@ -186,6 +186,48 @@ export function createYesNoAnswer(
   };
 }
 
+export function createSelectPileAnswer(
+  choiceId: ChoiceId,
+  playerId: PlayerId,
+  selectedColor: Color
+): SelectPileAnswer {
+  return {
+    type: 'select_pile',
+    choiceId,
+    playerId,
+    selectedColor,
+    timestamp: Date.now(),
+  };
+}
+
+export function createOrderCardsAnswer(
+  choiceId: ChoiceId,
+  playerId: PlayerId,
+  orderedCards: CardId[]
+): OrderCardsAnswer {
+  return {
+    type: 'order_cards',
+    choiceId,
+    playerId,
+    orderedCards,
+    timestamp: Date.now(),
+  };
+}
+
+export function createSelectPlayerAnswer(
+  choiceId: ChoiceId,
+  playerId: PlayerId,
+  selectedPlayer: PlayerId
+): SelectPlayerAnswer {
+  return {
+    type: 'select_player',
+    choiceId,
+    playerId,
+    selectedPlayer,
+    timestamp: Date.now(),
+  };
+}
+
 // Type guards
 export function isSelectCardsChoice(choice: Choice): choice is SelectCardsChoice {
   return choice.type === 'select_cards';
@@ -200,4 +242,139 @@ export function isValidAnswerForChoice(choice: Choice, answer: ChoiceAnswer): bo
   return choice.id === answer.choiceId && 
          choice.playerId === answer.playerId &&
          choice.type === answer.type;
+}
+
+/**
+ * Expand a choice into all possible valid answers
+ * This utility function is used by both UI and bot to understand available options
+ */
+export function expandChoice(choice: Choice, gameState: import('./game-data.js').GameData): ChoiceAnswer[] {
+  const player = gameState.players[choice.playerId];
+  if (!player) {
+    throw new Error(`Player ${choice.playerId} not found in game state`);
+  }
+
+  switch (choice.type) {
+    case 'select_cards': {
+      const availableCards = getAvailableCardsFromZone(choice.from, player, gameState);
+      const validSelections = generateValidCardSelections(availableCards, choice.minCards, choice.maxCards);
+      return validSelections.map(cards => 
+        createSelectCardsAnswer(choice.id, choice.playerId, cards)
+      );
+    }
+
+    case 'select_pile': {
+      return choice.availableColors.map(color => 
+        createSelectPileAnswer(choice.id, choice.playerId, color)
+      );
+    }
+
+    case 'order_cards': {
+      // Generate all possible orderings of the cards
+      const permutations = generatePermutations(choice.cards);
+      return permutations.map(orderedCards => 
+        createOrderCardsAnswer(choice.id, choice.playerId, orderedCards)
+      );
+    }
+
+    case 'yes_no': {
+      return [
+        createYesNoAnswer(choice.id, choice.playerId, true),
+        createYesNoAnswer(choice.id, choice.playerId, false)
+      ];
+    }
+
+    case 'select_player': {
+      return choice.availablePlayers.map(playerId => 
+        createSelectPlayerAnswer(choice.id, choice.playerId, playerId)
+      );
+    }
+
+    default:
+      throw new Error(`Unsupported choice type: ${(choice as any).type}`);
+  }
+}
+
+/**
+ * Get available cards from a zone reference
+ */
+function getAvailableCardsFromZone(zoneRef: ZoneRef, player: any, gameState: import('./game-data.js').GameData): number[] {
+  switch (zoneRef.zone) {
+    case 'hand':
+      return player.hands;
+    case 'board':
+      if (zoneRef.color) {
+        const colorStack = player.colors.find((stack: any) => stack.color === zoneRef.color);
+        return colorStack ? colorStack.cards : [];
+      }
+      return [];
+    case 'score':
+      return player.scores;
+    default:
+      return [];
+  }
+}
+
+/**
+ * Generate valid card selections within min/max constraints
+ */
+function generateValidCardSelections(availableCards: number[], minCards: number, maxCards: number): number[][] {
+  const result: number[][] = [];
+  
+  // Handle optional selection (minCards = 0)
+  if (minCards === 0) {
+    result.push([]);
+  }
+  
+  // Generate combinations of different sizes
+  for (let size = Math.max(minCards, 1); size <= Math.min(maxCards, availableCards.length); size++) {
+    const combinations = generateCombinations(availableCards, size);
+    result.push(...combinations);
+  }
+  
+  return result;
+}
+
+/**
+ * Generate all combinations of size k from array
+ */
+function generateCombinations(array: number[], k: number): number[][] {
+  if (k === 0) return [[]];
+  if (k > array.length) return [];
+  
+  const result: number[][] = [];
+  
+  for (let i = 0; i <= array.length - k; i++) {
+    const head = array[i];
+    if (head === undefined) continue; // Skip undefined elements
+    const tailCombinations = generateCombinations(array.slice(i + 1), k - 1);
+    
+    for (const tail of tailCombinations) {
+      result.push([head, ...tail]);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Generate all permutations of an array
+ */
+function generatePermutations(array: number[]): number[][] {
+  if (array.length <= 1) return [array];
+  
+  const result: number[][] = [];
+  
+  for (let i = 0; i < array.length; i++) {
+    const current = array[i];
+    if (current === undefined) continue; // Skip undefined elements
+    const remaining = array.filter((_, index) => index !== i);
+    const perms = generatePermutations(remaining);
+    
+    for (const perm of perms) {
+      result.push([current, ...perm]);
+    }
+  }
+  
+  return result;
 }

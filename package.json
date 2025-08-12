@@ -13,6 +13,7 @@
     "test:golden": "vitest tests/golden",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
+    "bot:demo": "node --loader ts-node/esm src/bot/demo.ts",
     "lint": "eslint src --ext ts,tsx",
     "lint:fix": "eslint src --ext ts,tsx --fix", 
     "format": "prettier --write src/**/*.{ts,tsx}",

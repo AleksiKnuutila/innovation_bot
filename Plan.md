@@ -220,7 +220,41 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * Core game invariants validated automatically
 * Engine stability verified through invariant checking
 
-# Phase 5 — UI (Svelte or vanilla)
+# Phase 5 — Simple Random Bot (Before UI)
+
+* **Bot Architecture**:
+  * Create `/src/bot/` directory with extensible bot framework
+  * Implement `RandomBot` class with stateless decision-making
+  * Design shared bot interface for easy bot swapping
+  * Bot follows stepper pattern: Action → Choice → Choice → Done
+* **Core Bot Implementation**:
+  * `decideAction(gameState, playerId)` - randomly selects from legal actions
+  * `decideChoice(gameState, choice)` - randomly selects from valid choices
+  * Uses game's seeded RNG for deterministic behavior
+  * Handles all choice types (yes_no, select_cards, select_pile, etc.)
+* **Bot Testing Infrastructure**:
+  * Unit tests for bot decision logic and choice handling
+  * Integration tests for bot vs bot games (1000+ games)
+  * Performance tests (response time under 200ms)
+  * Test bot produces valid moves in 100% of scenarios
+* **Bot Integration & Validation**:
+  * Ensure bot follows stepper pattern correctly
+  * Validate bot produces only legal actions/choices
+  * Test bot against existing game engine tests
+  * Add bot-specific error handling and logging
+
+**DoD Phase 5**
+
+* Bot can play complete games against itself
+* Bot produces valid moves in 100% of test scenarios
+* Bot algorithms have comprehensive unit test coverage
+* Bot response time under 200ms for typical game states
+* Bot vs bot games run successfully (1000+ games)
+* Bot handles all choice types and edge cases correctly
+* Bot uses seeded RNG for deterministic behavior
+* All existing tests still pass with bot integration
+
+# Phase 6 — UI (Svelte or vanilla)
 
 * Render:
 
@@ -232,7 +266,7 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
     * On click, call `resumeWithAnswer(...)` until `Done`
   * Event log (scrolling list)
 * Keep state local or a tiny Svelte store; no extra libs
-* **Phase 5 Testing Requirements:**
+* **Phase 6 Testing Requirements:**
   * Component unit tests (render correctness, event handling)
   * Integration tests for user interaction flows (draw → meld → dogma)
   * Visual regression tests for UI consistency
@@ -250,7 +284,7 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
     * Invalid input handling
     * Edge case discovery
 
-**DoD Phase 5**
+**DoD Phase 6**
 
 * **UI components have 80%+ test coverage**
 * **Integration tests cover complete user workflows**
@@ -259,7 +293,7 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * **Golden tests prevent regression in card behavior**
 * **Fuzz tests running 1000+ games without crashes**
 
-# Phase 6 — Bot (in a Web Worker)
+# Phase 7 — Advanced Bot (in a Web Worker)
 
 * `/bot/worker.ts`:
 
@@ -268,7 +302,7 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Drives the stepper loop: if `NeedChoice`, enumerate answers (via `choices/expand`) and respond until `Done`
 * UI spawns worker with `new Worker(new URL('../bot/worker.ts', import.meta.url))`
 * Start with simple heuristics; upgrade later
-* **Phase 6 Testing Requirements:**
+* **Phase 7 Testing Requirements:**
   * Unit tests for bot decision-making algorithms
   * Integration tests for bot vs bot games (automated tournaments)
   * Performance tests for bot response time under different game states
@@ -277,19 +311,19 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Validate bot produces only legal actions
   * Test bot against human players for balanced gameplay
 
-**DoD Phase 6**
+**DoD Phase 7**
 
 * **Bot algorithms have comprehensive unit test coverage**
 * **Automated bot tournaments run successfully (1000+ games)**
 * **Bot response time under 200ms for typical game states**
 * **Bot produces valid moves in 100% of test scenarios**
 
-# Phase 7 — Replay, Dev UX, and Sim
+# Phase 8 — Replay, Dev UX, and Sim
 
 * `replay(seed, inputs)` that feeds the **stepper** to reproduce games
 * Time-travel in UI (`eventIndex` slider using stored Events)
 * `/sim`: headless runner to batch playouts for perf/testing
-* **Phase 7 Testing Requirements:**
+* **Phase 8 Testing Requirements:**
   * Unit tests for replay system (deterministic reproduction)
   * Test time-travel functionality (forward/backward navigation)
   * Integration tests for headless simulation runner
@@ -298,19 +332,19 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Test replay system with corrupted/incomplete data
   * Validate replay events match original game exactly
 
-**DoD Phase 7**
+**DoD Phase 8**
 
 * **Replay system reproduces games with 100% fidelity**
 * **Time-travel UI tested for all game states and transitions**
 * **Simulation runner handles 10,000+ game batches reliably**
 * **Replay compatibility maintained across engine versions**
 
-# Phase 8 — Content & Editions
+# Phase 9 — Content & Editions
 
 * Card registry with stable `cardKey`, edition availability (3E/4E), metadata
 * Edition flags in rules; centralize differences (e.g., Age 11, aslant splay)
 * Incrementally add core deck (Age 1→10) with targeted tests
-* **Phase 8 Testing Requirements:**
+* **Phase 9 Testing Requirements:**
   * Unit tests for each new card added (Ages 4-10)
   * Integration tests for card interactions across different ages
   * Test edition-specific rules and card behaviors
@@ -319,20 +353,20 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Performance tests with full deck (105 cards)
   * Test edition switching doesn't break existing functionality
 
-**DoD Phase 8**
+**DoD Phase 9**
 
 * **All 105 cards have individual unit tests**
 * **Edition toggle works; shared tests pass under both where applicable**
 * **Cross-age card interactions tested comprehensively**
 * **Card database maintains 100% data integrity**
 
-# Phase 9 — Performance Pass (optional after MVP)
+# Phase 10 — Performance Pass (optional after MVP)
 
 * Profile hotspots in runner, choice expansion, legality checks
 * Add `stepMany(inputs[])` for batched bot sims
 * Consider internal in-place mutation with immutable public returns
 * Memoize `legalActions`/choice expansions until state changes
-* **Phase 9 Testing Requirements:**
+* **Phase 10 Testing Requirements:**
   * Benchmark tests for all performance-critical operations
   * Memory leak detection in long-running simulations
   * Load testing with concurrent bot matches
@@ -341,7 +375,7 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Validate memoization correctness and cache invalidation
   * Test batched operations maintain deterministic results
 
-**DoD Phase 9**
+**DoD Phase 10**
 
 * **Performance benchmarks show measurable improvements**
 * **Memory usage remains stable in 24+ hour simulations**

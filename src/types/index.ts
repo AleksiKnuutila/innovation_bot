@@ -11,6 +11,9 @@ export * from './choices.js';
 export * from './events.js';
 export * from './game-data.js';
 
+// Bot types
+export * from '../bot/types.js';
+
 // Common type combinations for convenience
 export type { Action } from './actions.js';
 export type { Choice, ChoiceAnswer } from './choices.js';
