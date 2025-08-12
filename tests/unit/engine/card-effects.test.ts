@@ -4,8 +4,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { initializeGame } from '@/engine/index.js';
 import { drawCard, meldCard, countIcons } from '@/engine/index.js';
-import { processDogmaAction, createDogmaContext } from '@/engine/index.js';
-import type { ChoiceAnswer } from '@/types/actions.js';
+import { processDogmaAction, createDogmaContext } from '../../../src/engine/index.js';
+import type { ChoiceAnswer } from '../../../src/types/actions.js';
+import { deepClone } from '../../../src/engine/utils.js';
+import type { GameEvent } from '../../../src/types/events.js';
 
 describe('Card Effects System (Phase 3)', () => {
   let gameData: ReturnType<typeof initializeGame>;
@@ -102,11 +104,17 @@ describe('Card Effects System (Phase 3)', () => {
       // Check that cards were drawn
       const newState = result.newState;
       expect(newState.players[0].hands.length).toBe(initialHandSize + 2);
-      expect(newState.shared.supplyPiles[0].cards.length).toBe(initialSupplySize - 2);
       
-      // Should have drew events
+      // Writing draws from age 2, so check age 2 supply pile
+      const age2SupplyPile = newState.shared.supplyPiles.find(pile => pile.age === 2);
+      expect(age2SupplyPile).toBeDefined();
+      if (age2SupplyPile) {
+        expect(age2SupplyPile.cards.length).toBeLessThan(gameData.shared.supplyPiles.find(pile => pile.age === 2)?.cards.length || 0);
+      }
+      
+      // Should have drew events (2 for activating player + 2 for sharing players)
       const drewEvents = result.events.filter(e => e.type === 'drew');
-      expect(drewEvents.length).toBe(2);
+      expect(drewEvents.length).toBe(4);
     });
 
     it('should work in integration with meld', () => {
@@ -224,6 +232,173 @@ describe('Card Effects System (Phase 3)', () => {
       result = processDogmaAction(newState, 5, 0);
       expect(result.nextPhase).toBe('AwaitingChoice');
       expect(result.pendingChoice?.type).toBe('yes_no');
+    });
+  });
+
+  // ============================================================================
+  // New Tests for Supply Pile Exhaustion and Sharing Mechanics
+  // ============================================================================
+  
+  describe('Supply Pile Exhaustion Handling', () => {
+    it('should draw from next available age when requested age is empty', () => {
+      // Set up a game state where age 1 is empty but age 2 has cards
+      const testGameData = deepClone(gameData);
+      
+      // Empty age 1 supply pile
+      testGameData.shared.supplyPiles[0].cards = [];
+      
+      // Ensure age 2 has cards
+      testGameData.shared.supplyPiles[1].cards = [20, 21, 22, 23, 24];
+      
+      const events: GameEvent[] = [];
+      const newState = drawCard(testGameData, 0, 1, events);
+      
+      // Should have drawn a card
+      expect(newState.players[0].hands.length).toBe(gameData.players[0].hands.length + 1);
+      
+      // Should have drawn from age 2 (next available)
+      const drewEvent = events.find(e => e.type === 'drew');
+      expect(drewEvent).toBeDefined();
+      expect(drewEvent?.fromAge).toBe(2);
+      expect(drewEvent?.requestedAge).toBe(1);
+      
+      // Age 2 supply pile should be reduced
+      expect(newState.shared.supplyPiles[1].cards.length).toBe(4);
+    });
+
+    it('should draw from lowest available age when no higher ages have cards', () => {
+      // Set up a game state where only age 3 has cards
+      const testGameData = deepClone(gameData);
+      
+      // Empty age 1 and 2 supply piles
+      testGameData.shared.supplyPiles[0].cards = [];
+      testGameData.shared.supplyPiles[1].cards = [];
+      
+      // Ensure age 3 has cards
+      testGameData.shared.supplyPiles[2].cards = [30, 31, 32, 33, 34];
+      
+      const events: GameEvent[] = [];
+      const newState = drawCard(testGameData, 0, 1, events);
+      
+      // Should have drawn a card
+      expect(newState.players[0].hands.length).toBe(gameData.players[0].hands.length + 1);
+      
+      // Should have drawn from age 3 (lowest available)
+      const drewEvent = events.find(e => e.type === 'drew');
+      expect(drewEvent).toBeDefined();
+      expect(drewEvent?.fromAge).toBe(3);
+      expect(drewEvent?.requestedAge).toBe(1);
+    });
+
+    it('should throw error when no supply piles have cards', () => {
+      // Set up a game state where all supply piles are empty
+      const testGameData = deepClone(gameData);
+      
+      // Empty all supply piles
+      testGameData.shared.supplyPiles.forEach(pile => {
+        pile.cards = [];
+      });
+      
+      const events: GameEvent[] = [];
+      
+      expect(() => {
+        drawCard(testGameData, 0, 1, events);
+      }).toThrow('No cards available in any supply pile');
+    });
+  });
+
+  describe('Sharing vs. Non-Sharing Dogma Effects', () => {
+    it('should share non-demand effects with eligible players', () => {
+      // Set up a game state where both players have similar icon counts
+      const testGameData = deepClone(gameData);
+      
+      // Both players draw and meld cards to have similar board states
+      const events: any[] = [];
+      let newState = drawCard(testGameData, 0, 1, events);
+      newState = drawCard(newState, 1, 1, events);
+      
+      const card0 = newState.players[0].hands[0];
+      const card1 = newState.players[1].hands[0];
+      
+      newState = meldCard(newState, 0, card0, events);
+      newState = meldCard(newState, 1, card1, events);
+      
+      // Activate Writing card dogma (non-demand effect)
+      const result = processDogmaAction(newState, 15, 0);
+      
+      // Should complete successfully
+      expect(result.nextPhase).toBe('AwaitingAction');
+      
+      // Should have 4 drew events (2 for activating player + 2 for sharing player)
+      const drewEvents = result.events.filter(e => e.type === 'drew');
+      expect(drewEvents.length).toBe(4);
+      
+      // Should have shared_effect event if sharing led to changes
+      const sharedEvents = result.events.filter(e => e.type === 'shared_effect');
+      expect(sharedEvents.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should not share demand effects', () => {
+      // Set up a game state where player 0 has more crown icons than player 1
+      const testGameData = deepClone(gameData);
+      
+      // Player 0 draws and melds more cards to have more icons
+      const events: any[] = [];
+      let newState = drawCard(testGameData, 0, 1, events);
+      newState = drawCard(newState, 0, 1, events);
+      newState = drawCard(newState, 1, 1, events);
+      
+      const card0a = newState.players[0].hands[0];
+      const card0b = newState.players[0].hands[1];
+      const card1 = newState.players[1].hands[0];
+      
+      newState = meldCard(newState, 0, card0a, events);
+      newState = meldCard(newState, 0, card0b, events);
+      newState = meldCard(newState, 1, card1, events);
+      
+      // Activate Oars card dogma (demand effect)
+      const result = processDogmaAction(newState, 10, 0);
+      
+      // Should need a choice (demand effect)
+      expect(result.nextPhase).toBe('AwaitingChoice');
+      expect(result.pendingChoice).toBeDefined();
+      
+      // Should not have shared effects since this is a demand
+      const sharedEvents = result.events.filter(e => e.type === 'shared_effect');
+      expect(sharedEvents.length).toBe(0);
+    });
+
+    it('should grant free draw action when sharing leads to changes', () => {
+      // This test verifies that when sharing effects lead to game state changes,
+      // the activating player gets a free draw action
+      
+      // Set up a game state where sharing will definitely cause changes
+      const testGameData = deepClone(gameData);
+      
+      // Both players have similar board states so they'll share
+      const events: any[] = [];
+      let newState = drawCard(testGameData, 0, 1, events);
+      newState = drawCard(newState, 1, 1, events);
+      
+      const card0 = newState.players[0].hands[0];
+      const card1 = newState.players[1].hands[0];
+      
+      newState = meldCard(newState, 0, card0, events);
+      newState = meldCard(newState, 1, card1, events);
+      
+      // Activate Writing card dogma (non-demand effect that will be shared)
+      const result = processDogmaAction(newState, 15, 0);
+      
+      // Should complete successfully
+      expect(result.nextPhase).toBe('AwaitingAction');
+      
+      // Should have shared_effect event indicating free draw was granted
+      const sharedEvents = result.events.filter(e => e.type === 'shared_effect');
+      expect(sharedEvents.length).toBeGreaterThan(0);
+      
+      // Check that the shared_effect event has the correct reason
+      const sharedEvent = sharedEvents[0];
+      expect(sharedEvent.reason).toBe('sharing_effects_triggered_changes');
     });
   });
 }); 

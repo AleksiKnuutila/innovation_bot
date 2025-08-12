@@ -11,7 +11,8 @@ import { deepClone } from './utils.js';
 // ============ Basic State Manipulation Functions ============
 
 /**
- * Draw a card of specified age from the supply pile
+ * Draw a card from the specified age supply pile
+ * If the requested age is empty, draws from the next available age pile
  */
 export function drawCard(
   gameData: GameData, 
@@ -21,10 +22,34 @@ export function drawCard(
 ): GameData {
   const newState = deepClone(gameData);
   
-  // Find the supply pile for the specified age
-  const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === age);
+  // Find the supply pile for the specified age, or the next available one
+  let supplyPile = newState.shared.supplyPiles.find(pile => pile.age === age);
+  let actualAge = age;
+  
+  // If the requested age is empty, find the next available age pile
   if (!supplyPile || supplyPile.cards.length === 0) {
-    throw new Error(`No cards available in age ${age} supply pile`);
+    // Sort supply piles by age and find the first one with cards
+    const availablePiles = newState.shared.supplyPiles
+      .filter(pile => pile.cards.length > 0)
+      .sort((a, b) => a.age - b.age);
+    
+    if (availablePiles.length === 0) {
+      throw new Error('No cards available in any supply pile');
+    }
+    
+    // Find the first pile with age >= requested age, or the lowest available age
+    const nextPile = availablePiles.find(pile => pile.age >= age) || availablePiles[0];
+    if (nextPile) {
+      supplyPile = nextPile;
+      actualAge = nextPile.age;
+    } else {
+      throw new Error('No available supply piles found');
+    }
+  }
+  
+  // At this point, supplyPile is guaranteed to be defined and have cards
+  if (!supplyPile || supplyPile.cards.length === 0) {
+    throw new Error('No cards available in any supply pile');
   }
   
   // Take the top card from the supply pile
@@ -34,11 +59,12 @@ export function drawCard(
   const player = newState.players[playerId]!;
   player.hands.push(drawnCardId);
   
-  // Emit draw event
+  // Emit draw event with actual age drawn from
   const event = emitEvent(newState, 'drew', {
     playerId,
     cardId: drawnCardId,
-    fromAge: age,
+    fromAge: actualAge,
+    requestedAge: age,
     toZone: { playerId, zone: 'hand' },
   });
   events.push(event);

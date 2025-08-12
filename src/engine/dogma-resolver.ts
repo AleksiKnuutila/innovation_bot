@@ -17,6 +17,7 @@ import type { Choice } from '../types/choices.js';
 import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';
 import { CARD_EFFECT_HANDLERS } from '../cards/effect-handlers.js';
+import { CARDS } from '../cards/database.js';
 
 // Global effect registry - maps card keys to effect functions
 const effectRegistry: EffectRegistry = { ...CARD_EFFECT_HANDLERS };
@@ -64,6 +65,53 @@ export function getAffectedPlayersForDogma(
     return [0, 1];
   }
   return [];
+}
+
+// Get sharing players for a dogma effect
+export function getSharingPlayers(
+  gameData: GameData,
+  cardId: CardId,
+  dogmaLevel: number,
+  activatingPlayer: PlayerId
+): PlayerId[] {
+  // Get the card data to find the dogma icon
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) {
+    return [];
+  }
+  
+  // Count the dogma icon for the activating player
+  const activatingPlayerIconCount = countPlayerIcons(gameData, activatingPlayer, card.dogmaIcon);
+  
+  // Find opponents who have at least that many icons
+  const sharingPlayers: PlayerId[] = [];
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerIconCount = countPlayerIcons(gameData, typedPlayerId, card.dogmaIcon);
+      if (playerIconCount >= activatingPlayerIconCount) {
+        sharingPlayers.push(typedPlayerId);
+      }
+    }
+  }
+  
+  return sharingPlayers;
+}
+
+// Count icons for a specific player (moved from effect-handlers)
+function countPlayerIcons(gameData: GameData, playerId: PlayerId, icon: string): number {
+  const player = gameData.players[playerId];
+  if (!player) return 0;
+  
+  let count = 0;
+  for (const colorStack of player.colors) {
+    for (const cardId of colorStack.cards) {
+      // TODO: Get actual card data and count icons
+      // For now, return a placeholder value
+      count += 1; // Placeholder
+    }
+  }
+  return count;
 }
 
 // Execute a dogma effect using the callback-based pattern
@@ -128,8 +176,9 @@ export function processDogmaAction(
   // Create dogma context
   const context = createDogmaContext(newState, cardId, 1, activatingPlayer);
   
-  // Get affected players
+  // Get affected players and sharing players
   const affectedPlayers = getAffectedPlayersForDogma(newState, cardId, 1, activatingPlayer);
+  const sharingPlayers = getSharingPlayers(newState, cardId, 1, activatingPlayer);
   
   // Process dogma level 1 for now (will be enhanced for levels 2-3)
   if (affectedPlayers.length === 0) {
@@ -146,7 +195,8 @@ export function processDogmaAction(
   let currentContext = { 
     ...context, 
     gameData: currentState,
-    affectedPlayers 
+    affectedPlayers,
+    sharingPlayers
   };
   
   // Execute the effect for the activating player
@@ -182,13 +232,82 @@ export function processDogmaAction(
       };
       
     case 'complete':
-      // Effect completed
+      // Effect completed - now handle sharing if applicable
+      let finalState = result.newState;
+      let finalEvents = [...events, ...result.events];
+      
+      // Check if there are sharing players and if this effect should be shared
+      if (sharingPlayers.length > 0 && shouldShareEffect(cardId, 'non-demand')) {
+        // Process sharing effects
+        const sharingResult = processSharingEffects(
+          finalState, 
+          cardId, 
+          activatingPlayer, 
+          sharingPlayers,
+          'non-demand'
+        );
+        finalState = sharingResult.newState;
+        finalEvents = [...finalEvents, ...sharingResult.events];
+        
+        // If sharing led to changes, activating player gets free Draw action
+        if (sharingResult.changesMade) {
+          // TODO: Implement free Draw action mechanism
+          // For now, just emit an event
+          const freeDrawEvent = emitEvent(finalState, 'shared_effect', {
+            playerId: activatingPlayer,
+            cardId,
+            reason: 'sharing_effects_triggered_changes'
+          });
+          finalEvents.push(freeDrawEvent);
+        }
+      }
+      
       return {
-        newState: result.newState,
-        events: [...events, ...result.events],
+        newState: finalState,
+        events: finalEvents,
         nextPhase: 'AwaitingAction'
       };
   }
+}
+
+// Determine if an effect should be shared
+function shouldShareEffect(cardId: CardId, effectType?: string): boolean {
+  // TODO: Implement proper logic based on card rules
+  // For now, assume non-demand effects are shared
+  return effectType !== 'demand';
+}
+
+// Process sharing effects for eligible players
+function processSharingEffects(
+  gameData: GameData,
+  cardId: CardId,
+  activatingPlayer: PlayerId,
+  sharingPlayers: PlayerId[],
+  effectType?: string
+): { newState: GameData; events: GameEvent[]; changesMade: boolean } {
+  let currentState = gameData;
+  const events: GameEvent[] = [];
+  let changesMade = false;
+  
+  // Process each sharing player in turn order
+  for (const sharingPlayer of sharingPlayers) {
+    // Create context for the sharing player
+    const sharingContext = createDogmaContext(currentState, cardId, 1, sharingPlayer);
+    
+    // Execute the effect for the sharing player
+    const sharingResult = executeDogmaEffect(sharingContext, sharingPlayer);
+    
+    // Apply the result
+    currentState = sharingResult.newState;
+    events.push(...sharingResult.events);
+    
+    // Check if changes were made
+    if (sharingResult.events.length > 0) {
+      changesMade = true;
+    }
+  }
+  
+  return { newState: currentState, events, changesMade };
 }
 
 // Resume dogma execution after a choice is made

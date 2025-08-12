@@ -15,7 +15,7 @@ export interface CardEffectFunction {
 export type EffectResult =
   | { type: 'continue'; newState: GameData; events: GameEvent[]; nextState: any }
   | { type: 'need_choice'; newState: GameData; events: GameEvent[]; choice: Choice; nextState: any }
-  | { type: 'complete'; newState: GameData; events: GameEvent[] };
+  | { type: 'complete'; newState: GameData; events: GameEvent[]; effectType?: 'demand' | 'non-demand' };
 
 // Effect registry maps string identifiers to functions
 export interface EffectRegistry {
@@ -29,6 +29,7 @@ export interface DogmaContext {
   readonly dogmaLevel: number; // 1, 2, or 3
   readonly activatingPlayer: PlayerId; // Who activated the dogma
   readonly affectedPlayers: PlayerId[]; // Players affected by this dogma level
+  readonly sharingPlayers?: PlayerId[]; // Players who share the dogma effect
 }
 
 // Active effect in the game state

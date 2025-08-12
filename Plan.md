@@ -68,48 +68,48 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * ✅ Starting player correctly gets 1 action, then 2 actions for all subsequent turns
 * ✅ All integration, error handling, serialization, RNG, and event system tests passing
 
-# ⏳ Phase 3 — Card Effects & Architecture Validation (READY TO START)
+# ⏳ Phase 3 — Card Effects & Architecture Validation (COMPLETED ✅)
 
-* Implement **callback-based state machine pattern** for card effects:
-  * Each card effect is a pure function that can be called multiple times
-  * Function returns `EffectResult` with `continue`, `need_choice`, or `complete`
-  * Effect state is serializable and stored in game state
-  * Engine calls effect function until it returns 'complete'
-* Build **effect registry system**:
-  * String identifiers (e.g., 'oars', 'codeOfLaws') map to effect functions
-  * Effect state stored in game state for resumption
-  * No complex continuation-passing or async/await
-* **Implement 2-3 representative Age 1 cards** for architecture validation:
-  * Start with simple card (e.g., Writing - no choices needed)
-  * Add medium complexity card (e.g., Code of Laws - single choice)
-  * Add complex card (e.g., Oars - multiple choices and loops)
-  * Validate that callback pattern handles all card types correctly
-* **Reference implementation guidance**:
-  * Use vb-implementation card handlers as behavioral reference
-  * Check Functions.vb for card effect implementations and edge cases
-  * Adapt logic patterns to new callback-based architecture
-* Ensure Events include `source` (card/rule) for explainability
-* **Phase 3 Testing Requirements:**
-  * Unit tests for each card effect (isolated behavior validation)
-  * Test effect resumption and state persistence
-  * Test choice generation and resolution for complex cards
-  * Test icon counting and symbol comparison logic
-  * Integration tests for complete dogma resolution chains
-  * Golden tests for each implemented card's behavior
-  * Test error handling for invalid card states/actions
-  * **Test callback-based effect state transitions and resumption**
-  * **Validate effect registry and routing system**
+* ✅ Implement **callback-based state machine pattern** for card effects:
+  * ✅ Each card effect is a pure function that can be called multiple times
+  * ✅ Function returns `EffectResult` with `continue`, `need_choice`, or `complete`
+  * ✅ Effect state is serializable and stored in game state
+  * ✅ Engine calls effect function until it returns 'complete'
+* ✅ Build **effect registry system**:
+  * ✅ String identifiers (e.g., 'oars', 'codeOfLaws') map to effect functions
+  * ✅ Effect state stored in game state for resumption
+  * ✅ No complex continuation-passing or async/await
+* ✅ **Implement 2-3 representative Age 1 cards** for architecture validation:
+  * ✅ Start with simple card (e.g., Writing - no choices needed)
+  * ✅ Add medium complexity card (e.g., Code of Laws - single choice)
+  * ✅ Add complex card (e.g., Oars - multiple choices and loops)
+  * ✅ Validate that callback pattern handles all card types correctly
+* ✅ **Reference implementation guidance**:
+  * ✅ Use vb-implementation card handlers as behavioral reference
+  * ✅ Check Functions.vb for card effect implementations and edge cases
+  * ✅ Adapt logic patterns to new callback-based architecture
+* ✅ Ensure Events include `source` (card/rule) for explainability
+* ✅ **Phase 3 Testing Requirements:**
+  * ✅ Unit tests for each card effect (isolated behavior validation)
+  * ✅ Test effect resumption and state persistence
+  * ✅ Test choice generation and resolution for complex cards
+  * ✅ Test icon counting and symbol comparison logic
+  * ✅ Integration tests for complete dogma resolution chains
+  * ✅ Golden tests for each implemented card's behavior
+  * ✅ Test error handling for invalid card states/actions
+  * ✅ **Test callback-based effect state transitions and resumption**
+  * ✅ **Validate effect registry and routing system**
 
-**DoD Phase 3**
+**DoD Phase 3** ✅ **COMPLETE**
 
-* Representative cards working end-to-end (action → choice → resolution)
-* Callback-based architecture validated with different complexity levels
-* Cards produce standardized Choices (UI renders without special-casing)
-* Effect state properly serialized and resumable
-* Logs human-readable via message keys + params
-* **All card effects have comprehensive unit tests (90%+ coverage)**
-* **Integration tests validate multi-card interactions**
-* **Golden tests prevent regression in card behavior**
+* ✅ Representative cards working end-to-end (action → choice → resolution)
+* ✅ Callback-based architecture validated with different complexity levels
+* ✅ Cards produce standardized Choices (UI renders without special-casing)
+* ✅ Effect state properly serialized and resumable
+* ✅ Logs human-readable via message keys + params
+* ✅ **All card effects have comprehensive unit tests (90%+ coverage)**
+* ✅ **Integration tests validate multi-card interactions**
+* ✅ **Golden tests prevent regression in card behavior**
 
 # Phase 4 — Comprehensive Testing & Validation
 

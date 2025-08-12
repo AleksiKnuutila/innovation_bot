@@ -21,34 +21,45 @@ import {
 // ============================================================================
 
 interface WritingState {
-  step: 'execute';
+  step: 'start';
 }
 
-export function writingEffect(context: DogmaContext, state: WritingState): EffectResult {
+export function writingEffect(
+  context: DogmaContext, 
+  state: WritingState, 
+  choiceAnswer?: any
+): EffectResult {
   const { gameData, activatingPlayer } = context;
   
-  // Draw two cards from age 1
-  let newState = gameData;
-  const events: GameEvent[] = [];
-  
-  // Draw first card
-  newState = drawCard(newState, activatingPlayer, 1, events);
-  const firstCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
-  
-  // Draw second card
-  newState = drawCard(newState, activatingPlayer, 1, events);
-  const secondCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
-  
-  // Emit dogma event
-  const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-    playerId: activatingPlayer,
-    cardId: context.cardId,
-    dogmaLevel: context.dogmaLevel,
-    source: 'writing_card_effect',
-  });
-  events.push(dogmaEvent);
-  
-  return { type: 'complete', newState, events };
+  switch (state.step) {
+    case 'start': {
+      // Writing: "Draw a 2" - should draw 2 cards from age 2
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      // Draw 2 cards from age 2 (or next available age)
+      newState = drawCard(newState, activatingPlayer, 2, events);
+      newState = drawCard(newState, activatingPlayer, 2, events);
+      
+      // Emit dogma event
+      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
+        playerId: activatingPlayer,
+        cardId: context.cardId,
+        dogmaLevel: context.dogmaLevel,
+        source: 'writing_card_effect',
+      });
+      events.push(dogmaEvent);
+      
+      return { 
+        type: 'complete', 
+        newState, 
+        events,
+        effectType: 'non-demand' // This effect can be shared
+      };
+    }
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
 }
 
 // ============================================================================
@@ -85,7 +96,8 @@ export function codeOfLawsEffect(
         return { 
           type: 'complete', 
           newState: gameData, 
-          events: [dogmaEvent] 
+          events: [dogmaEvent],
+          effectType: 'non-demand' // This effect can be shared
         };
       }
       
@@ -153,7 +165,12 @@ export function codeOfLawsEffect(
       });
       events.push(dogmaEvent);
       
-      return { type: 'complete', newState, events };
+      return { 
+        type: 'complete', 
+        newState: newState, 
+        events: events,
+        effectType: 'non-demand' // This effect can be shared
+      };
     }
   }
 }
@@ -196,12 +213,10 @@ export function oarsEffect(
         let newState = gameData;
         const events: GameEvent[] = [];
         
-        // Draw and score a card
         newState = drawCard(newState, activatingPlayer, 1, events);
         const drawnCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
         newState = scoreCard(newState, activatingPlayer, drawnCardId, events);
         
-        // Emit dogma event
         const dogmaEvent = emitEvent(newState, 'dogma_activated', {
           playerId: activatingPlayer,
           cardId: context.cardId,
@@ -210,7 +225,7 @@ export function oarsEffect(
         });
         events.push(dogmaEvent);
         
-        return { type: 'complete', newState, events };
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
       }
       
       // Start processing first affected player
@@ -240,7 +255,7 @@ export function oarsEffect(
           });
           events.push(dogmaEvent);
           
-          return { type: 'complete', newState, events };
+          return { type: 'complete', newState, events, effectType: 'non-demand' };
         }
         
         // Continue with next player
@@ -412,7 +427,7 @@ export function oarsEffect(
       });
       events.push(dogmaEvent);
       
-      return { type: 'complete', newState, events };
+      return { type: 'complete', newState, events, effectType: 'demand' };
     }
   }
 }
