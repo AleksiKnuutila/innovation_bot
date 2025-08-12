@@ -16,6 +16,7 @@ import {
   scoreCard,
   countIcons
 } from '../engine/state-manipulation.js';
+import { CARDS } from './database.js';
 
 // ============================================================================
 // Simple Card: Writing (No Choices)
@@ -152,8 +153,11 @@ export function codeOfLawsEffect(
       
       for (const cardId of handCards) {
         // Get card color for tucking
-        // TODO: Get actual card data - for now use a placeholder color
-        const color = 'blue' as any; // Placeholder
+        const card = CARDS.cardsById.get(cardId);
+        if (!card) {
+          throw new Error(`Card ${cardId} not found in database`);
+        }
+        const color = card.color;
         newState = tuckCard(newState, activatingPlayer, cardId, color, events);
       }
       

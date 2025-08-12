@@ -58,7 +58,7 @@ function checkScoreVictory(gameData: GameData): PlayerId | null {
       .filter((playerId): playerId is PlayerId => playerId !== undefined);
   
     if (winners.length === 1) {
-      return winners[0];
+      return winners[0] || null;
     } else {
       // Tie - use tie-breaking logic
       return breakScoreTie(gameData);
@@ -70,8 +70,42 @@ function checkScoreVictory(gameData: GameData): PlayerId | null {
 
 // Check card-based victory conditions
 function checkCardBasedVictory(gameData: GameData): PlayerId | null {
-  // This would check for cards with "win the game" effects
-  // For now, return null - will be implemented when we add those cards
+  // Check for special victory conditions based on card effects or board state
+  
+  // Check for Universe achievement (5 top cards of age 8+) - this is a victory condition
+  for (const playerId of [0, 1] as PlayerId[]) {
+    const player = gameData.players[playerId]!;
+    
+    // Need exactly 5 colors
+    if (player.colors.length !== 5) continue;
+    
+    // Each top card must be age 8 or higher
+    let allCardsAge8Plus = true;
+    for (const colorStack of player.colors) {
+      if (colorStack.cards.length === 0) {
+        allCardsAge8Plus = false;
+        break;
+      }
+      
+      const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
+      const topCard = gameData.shared.supplyPiles.find(pile => 
+        pile.cards.includes(topCardId)
+      );
+      
+      if (!topCard || topCard.age < 8) {
+        allCardsAge8Plus = false;
+        break;
+      }
+    }
+    
+    if (allCardsAge8Plus) {
+      return playerId as PlayerId; // Universe achievement triggers victory
+    }
+  }
+  
+  // Check for other potential victory conditions
+  // (This can be extended when we add cards with "win the game" effects)
+  
   return null;
 }
 
@@ -111,7 +145,7 @@ export function breakScoreTie(gameData: GameData): PlayerId | null {
     .filter((playerId): playerId is PlayerId => playerId !== undefined);
   
   if (tiedPlayers.length === 1) {
-    return tiedPlayers[0];
+    return tiedPlayers[0] || null;
   }
   
   // Break tie by most achievements

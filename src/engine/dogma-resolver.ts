@@ -228,7 +228,10 @@ export function resumeDogmaExecution(
   }
   
   // Create context and call effect function
-  const context = createDogmaContext(gameData, currentEffect.cardId, 1, 0); // TODO: get actual values
+  // Get actual values from the current effect or use defaults
+  const dogmaLevel = currentEffect.state?.dogmaLevel || 1;
+  const activatingPlayer = currentEffect.state?.activatingPlayer || 0;
+  const context = createDogmaContext(gameData, currentEffect.cardId, dogmaLevel, activatingPlayer);
   const result = effectFunction(context, currentEffect.state, choiceAnswer);
   
   // Handle the result

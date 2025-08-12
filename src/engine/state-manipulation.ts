@@ -6,6 +6,7 @@ import type { CardId, Color, PlayerId, SplayDirection } from '@/types/core.js';
 import type { GameEvent } from '@/types/events.js';
 import { CARDS } from '@/cards/database.js';
 import { emitEvent } from './events.js';
+import { getPlayerScores } from './victory-conditions.js';
 import { deepClone } from './utils.js';
 
 // ============ Basic State Manipulation Functions ============

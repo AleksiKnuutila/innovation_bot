@@ -130,8 +130,12 @@ function performInitialSetup(
       remainingAge1Cards = remaining;
     }
     
-    // For now, automatically choose the first card to meld and keep the second
-    // In a real game, players would choose simultaneously
+    // Card selection logic:
+    // In a real game, players would simultaneously choose which card to meld vs keep
+    // For automated/single-player setup, we use a deterministic algorithm:
+    // - Meld the first drawn card (ensures consistent board state)
+    // - Keep the second drawn card in hand (ensures consistent hand state)
+    // This creates a predictable starting position for testing and development
     const cardToMeld = drawnCards[0]!;
     const cardToKeep = drawnCards[1]!;
     
