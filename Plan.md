@@ -88,6 +88,14 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Check Functions.vb for card effect implementations and edge cases
   * Adapt logic patterns to new state machine architecture (better structure!)
 * Ensure Events include `source` (card/rule) for explainability
+* **Phase 3 Testing Requirements:**
+  * Unit tests for each card effect (isolated behavior validation)
+  * Test sharing/demand mechanics with multiple players
+  * Test choice generation and resolution for complex cards
+  * Test icon counting and symbol comparison logic
+  * Integration tests for complete dogma resolution chains
+  * Golden tests for each implemented card's behavior
+  * Test error handling for invalid card states/actions
 
 **DoD Phase 3**
 
@@ -95,6 +103,9 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * Architecture validated with different complexity levels
 * Cards produce standardized Choices (UI renders without special-casing)
 * Logs human-readable via message keys + params
+* **All card effects have comprehensive unit tests (90%+ coverage)**
+* **Integration tests validate multi-card interactions**
+* **Golden tests prevent regression in card behavior**
 
 # Phase 4 — Comprehensive Testing & Validation
 
@@ -144,6 +155,21 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
     * On click, call `resumeWithAnswer(...)` until `Done`
   * Event log (scrolling list)
 * Keep state local or a tiny Svelte store; no extra libs
+* **Phase 5 Testing Requirements:**
+  * Component unit tests (render correctness, event handling)
+  * Integration tests for user interaction flows (draw → meld → dogma)
+  * Visual regression tests for UI consistency
+  * Accessibility testing (keyboard navigation, screen readers)
+  * Cross-browser compatibility testing
+  * Mobile responsiveness testing
+  * Test error states and loading states in UI
+
+**DoD Phase 5**
+
+* **UI components have 80%+ test coverage**
+* **Integration tests cover complete user workflows**
+* **Visual regression tests prevent UI breakage**
+* **Accessibility standards met (WCAG 2.1 AA)**
 
 # Phase 6 — Bot (in a Web Worker)
 
@@ -154,22 +180,63 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
   * Drives the stepper loop: if `NeedChoice`, enumerate answers (via `choices/expand`) and respond until `Done`
 * UI spawns worker with `new Worker(new URL('../bot/worker.ts', import.meta.url))`
 * Start with simple heuristics; upgrade later
+* **Phase 6 Testing Requirements:**
+  * Unit tests for bot decision-making algorithms
+  * Integration tests for bot vs bot games (automated tournaments)
+  * Performance tests for bot response time under different game states
+  * Test bot behavior with complex choice scenarios
+  * Test Web Worker communication and error handling
+  * Validate bot produces only legal actions
+  * Test bot against human players for balanced gameplay
+
+**DoD Phase 6**
+
+* **Bot algorithms have comprehensive unit test coverage**
+* **Automated bot tournaments run successfully (1000+ games)**
+* **Bot response time under 200ms for typical game states**
+* **Bot produces valid moves in 100% of test scenarios**
 
 # Phase 7 — Replay, Dev UX, and Sim
 
 * `replay(seed, inputs)` that feeds the **stepper** to reproduce games
 * Time-travel in UI (`eventIndex` slider using stored Events)
 * `/sim`: headless runner to batch playouts for perf/testing
+* **Phase 7 Testing Requirements:**
+  * Unit tests for replay system (deterministic reproduction)
+  * Test time-travel functionality (forward/backward navigation)
+  * Integration tests for headless simulation runner
+  * Performance tests for large-scale batch simulations
+  * Test replay compatibility across different engine versions
+  * Test replay system with corrupted/incomplete data
+  * Validate replay events match original game exactly
+
+**DoD Phase 7**
+
+* **Replay system reproduces games with 100% fidelity**
+* **Time-travel UI tested for all game states and transitions**
+* **Simulation runner handles 10,000+ game batches reliably**
+* **Replay compatibility maintained across engine versions**
 
 # Phase 8 — Content & Editions
 
 * Card registry with stable `cardKey`, edition availability (3E/4E), metadata
 * Edition flags in rules; centralize differences (e.g., Age 11, aslant splay)
 * Incrementally add core deck (Age 1→10) with targeted tests
+* **Phase 8 Testing Requirements:**
+  * Unit tests for each new card added (Ages 4-10)
+  * Integration tests for card interactions across different ages
+  * Test edition-specific rules and card behaviors
+  * Golden tests for complex multi-card interactions
+  * Test card database integrity and metadata consistency
+  * Performance tests with full deck (105 cards)
+  * Test edition switching doesn't break existing functionality
 
 **DoD Phase 8**
 
-* Edition toggle works; shared tests pass under both where applicable
+* **All 105 cards have individual unit tests**
+* **Edition toggle works; shared tests pass under both where applicable**
+* **Cross-age card interactions tested comprehensively**
+* **Card database maintains 100% data integrity**
 
 # Phase 9 — Performance Pass (optional after MVP)
 
@@ -177,3 +244,18 @@ Here's a cleaned-up plan that uses a **simplified state machine** architecture i
 * Add `stepMany(inputs[])` for batched bot sims
 * Consider internal in-place mutation with immutable public returns
 * Memoize `legalActions`/choice expansions until state changes
+* **Phase 9 Testing Requirements:**
+  * Benchmark tests for all performance-critical operations
+  * Memory leak detection in long-running simulations
+  * Load testing with concurrent bot matches
+  * Regression testing to ensure optimizations don't break functionality
+  * Test performance improvements meet target metrics
+  * Validate memoization correctness and cache invalidation
+  * Test batched operations maintain deterministic results
+
+**DoD Phase 9**
+
+* **Performance benchmarks show measurable improvements**
+* **Memory usage remains stable in 24+ hour simulations**
+* **All existing tests pass after performance optimizations**
+* **Target performance metrics achieved (e.g., 1000+ games/second)**
