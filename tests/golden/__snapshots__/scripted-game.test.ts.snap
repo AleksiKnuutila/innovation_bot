@@ -1,0 +1,69 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Phase 2 DoD - Golden Test > should reach identical final state hash for scripted game 1`] = `
+"{
+  "turnNumber": 4,
+  "currentPlayer": 0,
+  "actionsRemaining": 1,
+  "player0Hand": [
+    15,
+    6
+  ],
+  "player1Hand": [
+    10,
+    12,
+    7,
+    9
+  ],
+  "player0Board": [
+    {
+      "color": "Green",
+      "cards": [
+        13
+      ]
+    },
+    {
+      "color": "Purple",
+      "cards": [
+        5
+      ]
+    }
+  ],
+  "player1Board": [
+    {
+      "color": "Yellow",
+      "cards": [
+        1
+      ]
+    }
+  ],
+  "supplyPiles": [
+    {
+      "age": 1,
+      "cardCount": 6,
+      "topCard": 2
+    },
+    {
+      "age": 2,
+      "cardCount": 10,
+      "topCard": 17
+    },
+    {
+      "age": 3,
+      "cardCount": 10,
+      "topCard": 28
+    }
+  ],
+  "rngState": {
+    "seed": 99999,
+    "counter": 41,
+    "state": [
+      3971196901,
+      171745420,
+      1725750732,
+      3868536811
+    ]
+  },
+  "eventCount": 6
+}"
+`;

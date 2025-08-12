@@ -70,6 +70,7 @@ export function writingEffect(
 
 interface CodeOfLawsState {
   step: 'check_condition' | 'waiting_choice';
+  activatingPlayer?: PlayerId;
 }
 
 export function codeOfLawsEffect(
@@ -81,45 +82,51 @@ export function codeOfLawsEffect(
   
   switch (state.step) {
     case 'check_condition': {
-      // Check if player has the highest crown count
+      // Check if this player has the highest crown count
       const playerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
-      const otherPlayerId: PlayerId = activatingPlayer === 0 ? 1 : 0;
+      const otherPlayerId = activatingPlayer === 0 ? 1 : 0;
       const otherPlayerCrowns = countIcons(gameData, otherPlayerId, 'Crown');
-      
+
       if (playerCrowns <= otherPlayerCrowns) {
-        // Player doesn't have highest crown count - effect completes immediately
-        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
-          playerId: activatingPlayer,
-          cardId: context.cardId,
-          dogmaLevel: context.dogmaLevel,
-          source: 'codeOfLaws_card_effect',
-        });
-        
-        return { 
-          type: 'complete', 
-          newState: gameData, 
-          events: [dogmaEvent],
-          effectType: 'non-demand' // This effect can be shared
+        // Player does not have highest crown count, complete immediately
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [],
+          effectType: 'non-demand'
         };
       }
-      
-      // Player has highest crown count - offer choice
-      const choice: YesNoChoice = {
-        id: 'codeOfLaws_tuck_choice',
-        playerId: activatingPlayer,
-        type: 'yes_no',
-        prompt: 'Tuck all cards from your hand?',
-        source: 'codeOfLaws_card_effect',
-        yesText: 'Tuck all cards from hand',
-        noText: 'Do not tuck any cards'
-      };
-      
+
+      // Check if player has cards in hand to tuck
+      const player = gameData.players[activatingPlayer]!;
+      if (player.hands.length === 0) {
+        // Player has no cards to tuck, complete immediately
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [],
+          effectType: 'non-demand'
+        };
+      }
+
+      // Player has highest crown count and cards to tuck, offer choice
       return {
         type: 'need_choice',
         newState: gameData,
         events: [],
-        choice,
-        nextState: { step: 'waiting_choice' }
+        choice: {
+          id: 'codeOfLaws_tuck_choice',
+          playerId: activatingPlayer,
+          type: 'yes_no',
+          prompt: 'Tuck all cards from your hand?',
+          source: 'codeOfLaws_card_effect',
+          yesText: 'Tuck all cards from hand',
+          noText: 'Do not tuck any cards'
+        },
+        nextState: { 
+          step: 'waiting_choice',
+          activatingPlayer // Store the activating player in state
+        }
       };
     }
     
@@ -128,10 +135,16 @@ export function codeOfLawsEffect(
         throw new Error('Expected yes/no choice answer');
       }
       
+      // Get the activating player from state
+      const storedActivatingPlayer = state.activatingPlayer;
+      if (storedActivatingPlayer === undefined) {
+        throw new Error('Activating player not found in state');
+      }
+      
       if (!choiceAnswer.answer) {
         // Player chose no - effect completes without action
         const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
-          playerId: activatingPlayer,
+          playerId: storedActivatingPlayer,
           cardId: context.cardId,
           dogmaLevel: context.dogmaLevel,
           source: 'codeOfLaws_card_effect',
@@ -148,8 +161,8 @@ export function codeOfLawsEffect(
       let newState = gameData;
       const events: GameEvent[] = [];
       
-      const player = newState.players[activatingPlayer]!;
-      const handCards = [...player.hands]; // Copy to avoid mutation during iteration
+      // Get hand cards from the original state to avoid iteration issues
+      const handCards = [...gameData.players[storedActivatingPlayer]!.hands];
       
       for (const cardId of handCards) {
         // Get card color for tucking
@@ -158,12 +171,12 @@ export function codeOfLawsEffect(
           throw new Error(`Card ${cardId} not found in database`);
         }
         const color = card.color;
-        newState = tuckCard(newState, activatingPlayer, cardId, color, events);
+        newState = tuckCard(newState, storedActivatingPlayer, cardId, color, events);
       }
       
       // Emit dogma event
       const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
+        playerId: storedActivatingPlayer,
         cardId: context.cardId,
         dogmaLevel: context.dogmaLevel,
         source: 'codeOfLaws_card_effect',

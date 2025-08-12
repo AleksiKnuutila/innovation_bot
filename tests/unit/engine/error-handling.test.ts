@@ -1,9 +1,9 @@
 // Error handling tests - testing edge cases, invalid inputs, and recovery scenarios
 import { describe, it, expect } from 'vitest';
-import { initializeGame } from '@/engine/game-setup.js';
-import { processAction, processChoice } from '@/engine/state-machine.js';
-import { serializeGame, deserializeGame } from '@/engine/serializer.js';
-import { validateGameData } from '@/types/game-data.js';
+import { initializeGame } from '../../../src/engine/game-setup.js';
+import { processAction, processChoice } from '../../../src/engine/state-machine.js';
+import { serializeGame, deserializeGame } from '../../../src/engine/serializer.js';
+import { validateGameData } from '../../../src/types/game-data.js';
 
 describe('Error Handling', () => {
   const createTestGame = () => initializeGame({
@@ -87,7 +87,7 @@ describe('Error Handling', () => {
     it('should reject choice with wrong choice ID', () => {
       let gameState = createTestGame();
       
-      // Force game into AwaitingChoice state with a pending choice
+      // Force game into AwaitingChoice state
       gameState = {
         ...gameState,
         phase: {
@@ -95,13 +95,18 @@ describe('Error Handling', () => {
           state: 'AwaitingChoice'
         },
         pendingChoice: {
-          id: 'correct-choice-id',
+          id: 'test-choice',
           playerId: 0,
           type: 'yes_no',
           prompt: 'Test choice',
           source: 'test',
           yesText: 'Yes',
           noText: 'No'
+        },
+        currentEffect: {
+          cardId: 1,
+          state: { step: 'waiting_choice' },
+          priority: 1
         }
       };
       
@@ -110,7 +115,7 @@ describe('Error Handling', () => {
         playerId: 0,
         type: 'yes_no', 
         answer: true
-      })).toThrow('Choice answer does not match pending choice');
+      })).toThrow('Choice ID mismatch');
     });
 
     it('should reject choice from wrong player', () => {
@@ -131,6 +136,20 @@ describe('Error Handling', () => {
           source: 'test',
           yesText: 'Yes',
           noText: 'No'
+        },
+        currentEffect: {
+          cardId: 1,
+          state: { step: 'waiting_choice' },
+          priority: 1,
+          choice: {
+            id: 'test-choice',
+            playerId: 0,
+            type: 'yes_no',
+            prompt: 'Test choice',
+            source: 'test',
+            yesText: 'Yes',
+            noText: 'No'
+          }
         }
       };
       
@@ -139,7 +158,7 @@ describe('Error Handling', () => {
         playerId: 1, // Wrong player
         type: 'yes_no',
         answer: true
-      })).toThrow('Choice answer from wrong player');
+      })).toThrow('Choice player mismatch');
     });
   });
 
@@ -169,39 +188,35 @@ describe('Error Handling', () => {
     it('should detect phase/choice inconsistencies', () => {
       const gameState = createTestGame();
       
-      // Game state says AwaitingChoice but no pending choice
+      // Game state says AwaitingChoice but no currentEffect
       const invalidGame1 = {
         ...gameState,
         phase: {
           ...gameState.phase,
           state: 'AwaitingChoice' as const
         },
-        pendingChoice: undefined
+        currentEffect: undefined
       };
       
       const errors1 = validateGameData(invalidGame1);
-      expect(errors1.some(e => e.includes('AwaitingChoice but no pendingChoice'))).toBe(true);
+      expect(errors1.some(e => e.includes('AwaitingChoice but no currentEffect is set'))).toBe(true);
       
-      // Game state has pending choice but wrong state
+      // Game state has currentEffect but wrong state
       const invalidGame2 = {
         ...gameState,
         phase: {
           ...gameState.phase,
           state: 'AwaitingAction' as const
         },
-        pendingChoice: {
-          id: 'test',
-          playerId: 0,
-          type: 'yes_no' as const,
-          prompt: 'Test',
-          source: 'test',
-          yesText: 'Yes',
-          noText: 'No'
+        currentEffect: {
+          cardId: 1,
+          state: { step: 'waiting_choice' },
+          priority: 1
         }
       };
       
       const errors2 = validateGameData(invalidGame2);
-      expect(errors2.some(e => e.includes('pendingChoice is set but game state is not AwaitingChoice'))).toBe(true);
+      expect(errors2.some(e => e.includes('currentEffect is set but game state is not AwaitingChoice'))).toBe(true);
     });
   });
 

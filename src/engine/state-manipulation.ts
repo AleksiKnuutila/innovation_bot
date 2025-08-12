@@ -226,12 +226,19 @@ export function tuckCard(
   }
   player.hands.splice(handIndex, 1);
   
-  // Add card to bottom of color stack (tucking)
-  const colorStack = player.colors.find(stack => stack.color === color);
+  // Find or create color stack for tucking
+  let colorStack = player.colors.find(stack => stack.color === color);
   if (!colorStack) {
-    throw new Error(`Player ${playerId} has no ${color} color stack to tuck under`);
+    // According to Innovation rules: "If there is no pile, the tuck starts a new pile"
+    const newColorStack: PlayerColorStack = {
+      color,
+      cards: []
+    };
+    player.colors.push(newColorStack);
+    colorStack = newColorStack;
   }
   
+  // At this point, colorStack is guaranteed to exist
   colorStack.cards.unshift(cardId); // Add to beginning (bottom)
   
   // Track turn-based tucking for Monument achievement
@@ -652,6 +659,7 @@ export function countIcons(gameData: GameData, playerId: PlayerId, icon: string)
   if (!player) return 0;
   
   let count = 0;
+  
   for (const colorStack of player.colors) {
     if (colorStack.cards.length === 0) continue;
     
@@ -679,11 +687,7 @@ export function countIcons(gameData: GameData, playerId: PlayerId, icon: string)
  * Returns array of position keys that are currently visible
  */
 function getVisibleIconPositions(colorStack: PlayerColorStack): Array<'top' | 'left' | 'middle' | 'right'> {
-  if (colorStack.cards.length < 2) {
-    // Single card or no cards - only top position is visible
-    return ['top'];
-  }
-  
+  // Check splay direction first - it overrides card count
   switch (colorStack.splayDirection) {
     case 'left':
       // Left splay reveals 1 additional icon (left position)

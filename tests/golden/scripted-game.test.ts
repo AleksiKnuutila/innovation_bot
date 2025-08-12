@@ -1,7 +1,7 @@
 // Golden test - scripted game reaches same final state hash
 import { describe, it, expect } from 'vitest';
-import { initializeGame, processAction, serializeGame } from '@/engine/index.js';
-import type { Action } from '@/types/actions.js';
+import { initializeGame, processAction, serializeGame } from '../../src/engine/index.js';
+import type { Action } from '../../src/types/actions.js';
 
 describe('Phase 2 DoD - Golden Test', () => {
   it('should reach identical final state hash for scripted game', () => {
@@ -24,18 +24,18 @@ describe('Phase 2 DoD - Golden Test', () => {
       
       if (startingPlayer === 0) {
         // Player 0 starts (1 action), then Player 1 (2 actions), then alternating
-        actions.push({ type: 'draw', playerId: 0 });      // P0 action 1 (turn 1)
-        actions.push({ type: 'draw', playerId: 1 });      // P1 action 1 (turn 2) 
-        actions.push({ type: 'draw', playerId: 1 });      // P1 action 2 (turn 2)
-        actions.push({ type: 'draw', playerId: 0 });      // P0 action 1 (turn 3)
-        actions.push({ type: 'draw', playerId: 0 });      // P0 action 2 (turn 3)
+        actions.push({ type: 'draw', playerId: 0, timestamp: Date.now() });      // P0 action 1 (turn 1)
+        actions.push({ type: 'draw', playerId: 1, timestamp: Date.now() });      // P1 action 1 (turn 2) 
+        actions.push({ type: 'draw', playerId: 1, timestamp: Date.now() });      // P1 action 2 (turn 2)
+        actions.push({ type: 'draw', playerId: 0, timestamp: Date.now() });      // P0 action 1 (turn 3)
+        actions.push({ type: 'draw', playerId: 0, timestamp: Date.now() });      // P0 action 2 (turn 3)
       } else {
         // Player 1 starts (1 action), then Player 0 (2 actions), then alternating
-        actions.push({ type: 'draw', playerId: 1 });      // P1 action 1 (turn 1)
-        actions.push({ type: 'draw', playerId: 0 });      // P0 action 1 (turn 2)
-        actions.push({ type: 'draw', playerId: 0 });      // P0 action 2 (turn 2)
-        actions.push({ type: 'draw', playerId: 1 });      // P1 action 1 (turn 3)
-        actions.push({ type: 'draw', playerId: 1 });      // P1 action 2 (turn 3)
+        actions.push({ type: 'draw', playerId: 1, timestamp: Date.now() });      // P1 action 1 (turn 1)
+        actions.push({ type: 'draw', playerId: 0, timestamp: Date.now() });      // P0 action 1 (turn 2)
+        actions.push({ type: 'draw', playerId: 0, timestamp: Date.now() });      // P0 action 2 (turn 2)
+        actions.push({ type: 'draw', playerId: 1, timestamp: Date.now() });      // P1 action 1 (turn 3)
+        actions.push({ type: 'draw', playerId: 1, timestamp: Date.now() });      // P1 action 2 (turn 3)
       }
       
       // Execute draw actions
@@ -51,10 +51,10 @@ describe('Phase 2 DoD - Golden Test', () => {
       
       // Add meld actions if players have cards
       if (currentPlayer === 0 && p0Cards.length > 0) {
-        const result = processAction(gameState, { type: 'meld', playerId: 0, cardId: p0Cards[0]! });
+        const result = processAction(gameState, { type: 'meld', playerId: 0, cardId: p0Cards[0]!, timestamp: Date.now() });
         gameState = result.newState;
       } else if (currentPlayer === 1 && p1Cards.length > 0) {
-        const result = processAction(gameState, { type: 'meld', playerId: 1, cardId: p1Cards[0]! });
+        const result = processAction(gameState, { type: 'meld', playerId: 1, cardId: p1Cards[0]!, timestamp: Date.now() });
         gameState = result.newState;
       }
 
@@ -107,14 +107,11 @@ describe('Phase 2 DoD - Golden Test', () => {
     expect(goldenState.eventCount).toBeGreaterThan(5); // Should have multiple events from script
     expect(goldenState.rngState.counter).toBeGreaterThan(0); // RNG should have advanced
     
-    // Store golden hash for regression testing
-    const goldenHash = run1; // The entire deterministic state string IS the golden hash
-    console.log(`Golden test state length: ${goldenHash.length} characters`);
-    console.log(`Sample: ${goldenHash.substring(0, 100)}...`);
+    // Generate a hash of the final game state for regression testing
+    const goldenHash = JSON.stringify(goldenState, null, 2);
     
-    // This would be hardcoded after first successful run:
-    // const EXPECTED_GOLDEN_HASH = "..."; 
-    // expect(run1).toBe(EXPECTED_GOLDEN_HASH);
+    // Store the hash for future comparison
+    expect(goldenHash).toMatchSnapshot();
   });
 
   it('should detect state changes in future modifications', () => {

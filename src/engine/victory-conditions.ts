@@ -3,6 +3,7 @@
 
 import type { GameData, PlayerId } from '../types/index.js';
 import type { WinCondition } from '../types/core.js';
+import { CARDS } from '../cards/database.js';
 
 // Check all victory conditions and return winner if any
 export function checkVictoryConditions(gameData: GameData): { winner: PlayerId | null; condition: WinCondition | null } {
@@ -88,9 +89,7 @@ function checkCardBasedVictory(gameData: GameData): PlayerId | null {
       }
       
       const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
-      const topCard = gameData.shared.supplyPiles.find(pile => 
-        pile.cards.includes(topCardId)
-      );
+      const topCard = CARDS.cardsById.get(topCardId);
       
       if (!topCard || topCard.age < 8) {
         allCardsAge8Plus = false;
@@ -117,11 +116,10 @@ export function getPlayerScores(gameData: GameData): Record<PlayerId, number> {
     const player = gameData.players[playerId]!;
     let score = 0;
     
-    // Count score from score pile
+    // Count score from score pile using card data from database
     for (const cardId of player.scores) {
-      const card = gameData.shared.supplyPiles.find(pile => 
-        pile.cards.includes(cardId)
-      );
+      // Find the card in the database to get its age
+      const card = CARDS.cardsById.get(cardId);
       if (card) {
         score += card.age;
       }
