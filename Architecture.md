@@ -204,3 +204,82 @@ function decompressGameState(data: Uint8Array): SaveGame | ErrorResult
 - Complete game state capture for perfect replays
 - Efficient compression for storage
 - Error recovery with validation
+
+## Testing Strategy
+
+### Test Structure
+
+```
+/tests
+  /unit            # Individual component tests
+    /engine        # Engine core functionality
+    /types         # Type validation and helpers
+    /cards         # Card-specific logic
+  /integration     # Cross-component workflows
+  /golden          # Regression and determinism tests
+```
+
+### Test Categories
+
+#### 1. Unit Tests (`/tests/unit/`)
+- **Engine Core**: Game initialization, action processing, turn management
+- **State Machine**: State transitions, validation, error handling  
+- **RNG System**: Deterministic behavior, state management
+- **Serialization**: Save/load, compression, migration
+- **Event System**: Event emission, filtering, replay
+
+#### 2. Integration Tests (`/tests/integration/`)
+- **End-to-End Workflows**: Complete game sequences from init to win
+- **Action Chains**: Multi-turn scenarios with state persistence
+- **Serialize/Deserialize**: Round-trip state preservation
+- **Error Recovery**: Invalid inputs, corrupt states, resilience
+
+#### 3. Golden Tests (`/tests/golden/`)
+- **Deterministic Replay**: Same seed + actions → identical events (Phase 2 DoD)
+- **Scripted Games**: Fixed scenarios with expected final state hashes (Phase 2 DoD)
+- **Regression Protection**: Detect unintended engine changes
+- **State Consistency**: Validate invariants across game progression
+
+### Testing Requirements by Phase
+
+#### Phase 2 DoD (Definition of Done)
+- ✅ **Basic Functionality**: Engine compiles and processes actions
+- ✅ **Deterministic Replay**: `seed + [Action/ChoiceAnswer...]` reproduces identical Events  
+- ✅ **Golden Test**: Scripted game reaches same final state hash reliably
+
+#### Phase 3 DoD 
+- **Card Effect Tests**: Representative Age 1 cards working end-to-end
+- **Architecture Validation**: State machine handles different complexity levels
+- **Choice/Answer Cycles**: Complex dogma effects with player choices
+
+#### Phase 4 DoD (Comprehensive Testing)
+- **90%+ Test Coverage**: All core engine paths tested
+- **Property Tests**: Card conservation, icon cache consistency, RNG determinism
+- **Fuzz Testing**: 1000+ random game sequences without crashes
+- **Performance Baselines**: Action processing speed benchmarks
+
+### Test Execution
+
+```bash
+# Run all tests
+npm test
+
+# Run specific categories
+npm run test:unit
+npm run test:integration  
+npm run test:golden
+
+# Coverage reporting
+npm run test:coverage
+
+# Watch mode for development
+npm run test:watch
+```
+
+### Testing Principles
+
+1. **Determinism First**: Every test must be reproducible with fixed seeds
+2. **State Validation**: Check game invariants after every major operation
+3. **Fail Fast**: Tests should detect regressions immediately
+4. **Documentation**: Tests serve as executable specifications
+5. **Performance Aware**: Monitor test execution time, flag regressions

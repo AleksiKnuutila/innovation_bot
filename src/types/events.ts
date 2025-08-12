@@ -221,7 +221,7 @@ export function createSplayedEvent(
   source: string,
   previousDirection?: SplayDirection
 ): SplayedEvent {
-  return {
+  const event: SplayedEvent = {
     type: 'splayed',
     id,
     timestamp: Date.now(),
@@ -229,8 +229,13 @@ export function createSplayedEvent(
     playerId,
     color,
     direction,
-    previousDirection,
   };
+  
+  if (previousDirection !== undefined) {
+    (event as any).previousDirection = previousDirection;
+  }
+  
+  return event;
 }
 
 // Event filtering helpers

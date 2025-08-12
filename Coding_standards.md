@@ -41,7 +41,7 @@
     
 - **Zones as typed arrays**: hands, piles, score, decks as `Uint16Array` or small vectors; index = top/bottom semantics defined.
     
-- **Cached counts**: keep per-player icon counts (Leaf/Bulb/Crown/Castle/Factory/Clock) cached & invalidated on splay/meld for fast dogma checks.
+- **Direct calculations**: calculate per-player icon counts (Leaf/Bulb/Crown/Castle/Factory/Clock) directly when needed for simplicity.
     
 - **Versioned schema**: include `state.schemaVersion` so you can migrate saves later.
     

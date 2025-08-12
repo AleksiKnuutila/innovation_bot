@@ -15,4 +15,5 @@ export * from './game-data.js';
 export type { Action } from './actions.js';
 export type { Choice, ChoiceAnswer } from './choices.js';
 export type { GameEvent } from './events.js';
-export type { GameData, GamePhase } from './game-data.js';
+export type { GameData } from './game-data.js';
+export type { GamePhase } from './game-state.js';

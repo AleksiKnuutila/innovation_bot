@@ -120,7 +120,7 @@ export function createSelectCardsChoice(
   maxCards: number,
   filter?: CardFilter
 ): SelectCardsChoice {
-  return {
+  const choice: SelectCardsChoice = {
     type: 'select_cards',
     id,
     playerId,
@@ -129,8 +129,13 @@ export function createSelectCardsChoice(
     from,
     minCards,
     maxCards,
-    filter,
   };
+  
+  if (filter !== undefined) {
+    (choice as any).filter = filter;
+  }
+  
+  return choice;
 }
 
 export function createYesNoChoice(

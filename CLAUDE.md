@@ -29,10 +29,10 @@ Implementation roadmap with phases:
 
 ### 4. **Architecture.md**
 System design decisions:
-- **Monorepo structure**: `/packages/{shared,engine,ui,bot,sim}`
-- **Engine API**: Synchronous stepper pattern with `startAction()` / `resumeWithAnswer()`
+- **Simplified single-package structure**: `/src/{engine,ui,bot,types,cards}`
+- **State Machine API**: Direct action processing with `processAction()` / `processChoice()`
 - **Data contracts**: Actions vs Choices separation, Events for replay/debug
-- Effect queue + stepper architecture for complex card interactions
+- Simple state machine architecture instead of complex effect queues
 
 ### 5. **Coding_standards.md**
 Technical constraints and patterns:
@@ -59,16 +59,25 @@ Legacy Visual Basic implementation containing:
 - Images and assets for card artwork
 
 ## Key Technical Decisions
-- **Effect Stack + Synchronous Stepper** architecture chosen over alternatives
-- **TypeScript first** with future Rust/WASM migration path
-- **Monorepo** with clear package separation
-- **Deterministic RNG** (PCG32/xoshiro) with seed storage
+- **Simple State Machine** architecture chosen for clarity and maintainability
+- **TypeScript first** with future Rust/WASM migration path  
+- **Single package structure** with clear module separation
+- **Deterministic RNG** (xoshiro128**) with seed storage
 - **Actions/Choices** separation for clean AI integration
+- **Direct calculations** instead of caching for simpler architecture
 
 ## Implementation Status
-Currently in planning phase with detailed architecture and specifications complete. Ready to begin Phase 0 (repository setup) and Phase 1 (shared contracts).
+**Phase 2 COMPLETED** - Engine core implemented with:
+- ✅ Deterministic RNG system (xoshiro128**)
+- ✅ State machine API (`processAction`, `processChoice`)
+- ✅ Event system for replay capability
+- ✅ Serialization system
+- ✅ All Phase 2 DoD tests passing (basic functionality, deterministic replay, golden test)
+
+**Ready for Phase 3** - Card effects and architecture validation
 
 ## Commands to Remember
-- Run tests: `npm test` or `pnpm test` (to be determined during setup)
-- Build: `npm run build` or `pnpm build` (to be determined during setup)
-- Lint/typecheck: `npm run lint` and `npm run typecheck` (to be determined during setup)
+- Run tests: `npm test`
+- Run tests once: `npm test -- --run`  
+- Build: `npm run build`
+- Lint/typecheck: `npm run lint` and `npm run typecheck`

@@ -75,17 +75,8 @@ export interface GameData {
   // Complete game history for replay and debugging
   readonly eventLog: EventLog;
   
-  // Cached derived data (for performance, recalculated as needed)
-  readonly cache: GameDataCache;
 }
 
-// Cached calculations to avoid repeated computation
-export interface GameDataCache {
-  readonly playerIconCounts: Record<PlayerId, Record<import('./cards.js').Icon, number>>;
-  readonly playerScores: Record<PlayerId, number>;
-  readonly topCards: Record<PlayerId, Record<Color, CardId | null>>;
-  readonly lastUpdated: number; // Timestamp when cache was last recalculated
-}
 
 // Initial game setup data
 export interface GameSetupOptions {
@@ -140,8 +131,10 @@ export function getAllTopCards(gameData: GameData, playerId: PlayerId): CardId[]
 }
 
 export function getPlayerScore(gameData: GameData, playerId: PlayerId): number {
-  return gameData.cache.playerScores[playerId] ?? 0;
+  return gameData.players[playerId]?.scores.length ?? 0;
 }
+
+// Icon counting function moved to engine/utils.js to avoid circular dependencies
 
 export function getPlayerAchievementCount(gameData: GameData, playerId: PlayerId): number {
   const player = gameData.players[playerId];
@@ -164,6 +157,12 @@ export function getOpponent(playerId: PlayerId): PlayerId {
 // Validation helpers
 export function validateGameData(gameData: GameData): string[] {
   const errors: string[] = [];
+  
+  // Check basic structure
+  if (!gameData || !gameData.players) {
+    errors.push('Players data missing');
+    return errors;
+  }
   
   // Check that both players exist
   if (!gameData.players[0]) errors.push('Player 0 data missing');

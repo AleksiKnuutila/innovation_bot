@@ -23,8 +23,11 @@ export type WinCondition =
   | 'special_card'   // Card effect ends game immediately
   | 'timeout';       // Game exceeded maximum turns (safety)
 
-// Re-export card-related types for convenience
+// Re-export card-related types for convenience  
 export type { CardId, Age, Color, Icon } from './cards.js';
+
+// Import the types locally for use in interfaces below
+import type { Color, Age } from './cards.js';
 
 // Zone references for card locations
 export interface ZoneRef {

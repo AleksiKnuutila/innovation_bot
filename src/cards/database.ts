@@ -55,7 +55,7 @@ const CARD_DATA: CardData[] = [
     dogmaIcon: 'Leaf',
     dogmaEffects: [
       'Meld a card from your hand of different color from any card on your board.',
-      'Draw and score a 1 for each color present on your board not present on any other player's board.',
+      'Draw and score a 1 for each color present on your board not present on any other player\'s board.',
       ''
     ]
   },
