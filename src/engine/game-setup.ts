@@ -59,7 +59,7 @@ export function initializeGame(options: GameSetupOptions): GameData {
   
   
   const gameData: GameData = {
-    gameId,
+    gameId: options.gameId,
     version: '1.0.0',
     createdAt: Date.now(),
     phase,
@@ -69,7 +69,6 @@ export function initializeGame(options: GameSetupOptions): GameData {
       ...shared,
       supplyPiles: updatedSupplyPiles,
     },
-    activeEffects: [], // Initialize empty active effects array
     eventLog,
   };
   

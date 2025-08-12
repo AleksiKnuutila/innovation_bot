@@ -1,4 +1,4 @@
-// Callback-based dogma resolution system
+// Simplified dogma resolution system
 
 import type { 
   GameData, 
@@ -9,8 +9,7 @@ import type {
   DogmaContext, 
   CardEffectFunction, 
   EffectRegistry, 
-  EffectResult,
-  ActiveEffect 
+  EffectResult
 } from '../types/dogma.js';
 import type { GameEvent } from '../types/events.js';
 import type { Choice } from '../types/choices.js';
@@ -34,128 +33,74 @@ export function getCardEffectFunction(cardKey: string): CardEffectFunction | und
   return effectRegistry[cardKey];
 }
 
-// Create dogma context for an effect
+// Create simplified dogma context
 export function createDogmaContext(
   gameData: GameData,
   cardId: CardId,
   dogmaLevel: number,
   activatingPlayer: PlayerId
 ): DogmaContext {
-  // For now, assume all players are affected by dogma level 1
-  // This will be enhanced later to handle actual dogma level logic
-  const affectedPlayers: PlayerId[] = dogmaLevel === 1 ? [0, 1] : [];
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) {
+    throw new Error(`Unknown card ID: ${cardId}`);
+  }
+  
+  // Get sharing players based on icon count
+  const sharingPlayers: PlayerId[] = [];
+  const activatingPlayerIconCount = countIcons(gameData, activatingPlayer, card.dogmaIcon);
+  
+  for (const playerId of [0, 1] as PlayerId[]) {
+    if (playerId === activatingPlayer) continue;
+    
+    const playerIconCount = countIcons(gameData, playerId, card.dogmaIcon);
+    if (playerIconCount >= activatingPlayerIconCount) {
+      sharingPlayers.push(playerId);
+    }
+  }
   
   return {
     gameData,
     cardId,
     dogmaLevel,
     activatingPlayer,
-    affectedPlayers
+    affectedPlayers: [0, 1], // All players affected for now
+    sharingPlayers
   };
 }
 
-// Get affected players for a specific dogma level
-export function getAffectedPlayersForDogma(
-  gameData: GameData,
-  cardId: CardId,
-  dogmaLevel: number,
-  activatingPlayer: PlayerId
-): PlayerId[] {
-  // TODO: Implement actual dogma level logic based on card rules
-  // For now, return all players for level 1
-  if (dogmaLevel === 1) {
-    return [0, 1];
-  }
-  return [];
-}
-
-// Get sharing players for a dogma effect
-export function getSharingPlayers(
-  gameData: GameData,
-  cardId: CardId,
-  dogmaLevel: number,
-  activatingPlayer: PlayerId
-): PlayerId[] {
-  // Get the card data to find the dogma icon
-  const card = CARDS.cardsById.get(cardId);
-  if (!card) {
-    return [];
-  }
-  
-  // Count the dogma icon for the activating player
-  const activatingPlayerIconCount = countPlayerIcons(gameData, activatingPlayer, card.dogmaIcon);
-  
-  // Find opponents who have at least that many icons
-  const sharingPlayers: PlayerId[] = [];
-  for (let playerId = 0; playerId < 2; playerId++) {
-    const typedPlayerId = playerId as PlayerId;
-    if (typedPlayerId !== activatingPlayer) {
-      const playerIconCount = countPlayerIcons(gameData, typedPlayerId, card.dogmaIcon);
-      if (playerIconCount >= activatingPlayerIconCount) {
-        sharingPlayers.push(typedPlayerId);
-      }
-    }
-  }
-  
-  return sharingPlayers;
-}
-
-// Count icons for a specific player (moved from effect-handlers)
-function countPlayerIcons(gameData: GameData, playerId: PlayerId, icon: string): number {
-  return countIcons(gameData, playerId, icon);
-}
-
-// Execute a dogma effect using the callback-based pattern
+// Simplified dogma execution - direct call to card effect
 export function executeDogmaEffect(
-  context: DogmaContext,
-  playerId: PlayerId
+  context: DogmaContext
 ): EffectResult {
-  // Get the card key from the card ID
-  const cardKey = getCardKeyFromId(context.cardId);
-  if (!cardKey) {
+  const card = CARDS.cardsById.get(context.cardId);
+  if (!card) {
     throw new Error(`Unknown card ID: ${context.cardId}`);
   }
   
-  // Get the effect function
+  // Get card key from card title (simplified)
+  const cardKey = getCardKeyFromTitle(card.title);
+  if (!cardKey) {
+    throw new Error(`No effect handler for card: ${cardKey}`);
+  }
+  
   const effectFunction = effectRegistry[cardKey];
   if (!effectFunction) {
     throw new Error(`No effect handler for card: ${cardKey}`);
   }
   
   // Check if this effect is already active
-  const activeEffect = context.gameData.activeEffects.find(e => e.cardId === context.cardId);
-  
-  if (activeEffect) {
+  const currentEffect = context.gameData.currentEffect;
+  if (currentEffect && currentEffect.cardId === context.cardId) {
     // Resume existing effect
-    return effectFunction(context, activeEffect.effectState);
+    return effectFunction(context, currentEffect.state);
   } else {
     // Start new effect with initial state
-    let initialState: any;
-    
-    // Provide appropriate initial state for each card
-    switch (cardKey) {
-      case 'writing':
-        initialState = { step: 'start' };
-        break;
-      case 'codeOfLaws':
-        initialState = { step: 'check_condition' };
-        break;
-      case 'oars':
-        initialState = { 
-          step: 'execute_demand', 
-          affectedPlayers: [], 
-          currentPlayerIndex: 0 
-        };
-        break;
-      default:
-        initialState = { step: 'start' };
-    }
-    
+    const initialState = getInitialState(cardKey);
     return effectFunction(context, initialState);
   }
 }
 
-// Process a dogma action using the callback-based pattern
+// Process dogma action - simplified flow
 export function processDogmaAction(
   gameData: GameData,
   cardId: CardId,
@@ -164,39 +109,13 @@ export function processDogmaAction(
   const newState = deepClone(gameData);
   const events: GameEvent[] = [];
   
-  // Create dogma context
+  // Create context and execute effect
   const context = createDogmaContext(newState, cardId, 1, activatingPlayer);
-  
-  // Get affected players and sharing players
-  const affectedPlayers = getAffectedPlayersForDogma(newState, cardId, 1, activatingPlayer);
-  const sharingPlayers = getSharingPlayers(newState, cardId, 1, activatingPlayer);
-  
-  // Process dogma level 1 for now (will be enhanced for levels 2-3)
-  if (affectedPlayers.length === 0) {
-    // No players affected, effect completes immediately
-    return {
-      newState,
-      events,
-      nextPhase: 'AwaitingAction'
-    };
-  }
-  
-  // Start with the activating player
-  let currentState = newState;
-  let currentContext = { 
-    ...context, 
-    gameData: currentState,
-    affectedPlayers,
-    sharingPlayers
-  };
-  
-  // Execute the effect for the activating player
-  const result = executeDogmaEffect(currentContext, activatingPlayer);
+  const result = executeDogmaEffect(context);
   
   // Handle the result
   switch (result.type) {
     case 'continue':
-      // Effect continues with new state
       return {
         newState: result.newState,
         events: [...events, ...result.events],
@@ -204,15 +123,14 @@ export function processDogmaAction(
       };
       
     case 'need_choice':
-      // Effect needs a choice - store it in game state
+      // Store choice and effect state
       const choiceState = {
         ...result.newState,
-        pendingChoice: result.choice,
-        activeEffects: [...result.newState.activeEffects, {
+        currentEffect: {
           cardId,
-          effectState: result.nextState,
-          priority: 1
-        }]
+          state: result.nextState,
+          choice: result.choice
+        }
       };
       
       return {
@@ -223,27 +141,18 @@ export function processDogmaAction(
       };
       
     case 'complete':
-      // Effect completed - now handle sharing if applicable
+      // Effect completed - handle sharing if applicable
       let finalState = result.newState;
       let finalEvents = [...events, ...result.events];
       
-      // Check if there are sharing players and if this effect should be shared
-      if (sharingPlayers.length > 0 && shouldShareEffect(cardId, 'non-demand')) {
-        // Process sharing effects
-        const sharingResult = processSharingEffects(
-          finalState, 
-          cardId, 
-          activatingPlayer, 
-          sharingPlayers,
-          'non-demand'
-        );
+      // Simple sharing logic - only for non-demand effects
+      if (result.effectType === 'non-demand' && context.sharingPlayers && context.sharingPlayers.length > 0) {
+        const sharingResult = processSharingEffects(finalState, cardId, context.sharingPlayers);
         finalState = sharingResult.newState;
         finalEvents = [...finalEvents, ...sharingResult.events];
         
-        // If sharing led to changes, activating player gets free Draw action
+        // If sharing led to changes, emit event (free draw handled later)
         if (sharingResult.changesMade) {
-          // TODO: Implement free Draw action mechanism
-          // For now, just emit an event
           const freeDrawEvent = emitEvent(finalState, 'shared_effect', {
             playerId: activatingPlayer,
             cardId,
@@ -261,93 +170,76 @@ export function processDogmaAction(
   }
 }
 
-// Determine if an effect should be shared
-function shouldShareEffect(cardId: CardId, effectType?: string): boolean {
-  // TODO: Implement proper logic based on card rules
-  // For now, assume non-demand effects are shared
-  return effectType !== 'demand';
-}
-
-// Process sharing effects for eligible players
+// Simplified sharing effects processing
 function processSharingEffects(
   gameData: GameData,
   cardId: CardId,
-  activatingPlayer: PlayerId,
-  sharingPlayers: PlayerId[],
-  effectType?: string
+  sharingPlayers: PlayerId[]
 ): { newState: GameData; events: GameEvent[]; changesMade: boolean } {
   let currentState = gameData;
   const events: GameEvent[] = [];
   let changesMade = false;
   
-  // Process each sharing player in turn order
+  // Process each sharing player
   for (const sharingPlayer of sharingPlayers) {
-    // Create context for the sharing player
     const sharingContext = createDogmaContext(currentState, cardId, 1, sharingPlayer);
+    const sharingResult = executeDogmaEffect(sharingContext);
     
-    // Execute the effect for the sharing player
-    const sharingResult = executeDogmaEffect(sharingContext, sharingPlayer);
-    
-    // Apply the result
     currentState = sharingResult.newState;
     events.push(...sharingResult.events);
     
-    // Check if changes were made
     if (sharingResult.events.length > 0) {
       changesMade = true;
     }
     
-    // Check for special achievements after sharing effects
+    // Check for special achievements
     const achievementResult = autoClaimSpecialAchievements(currentState, sharingPlayer);
     if (achievementResult.claimedAchievements.length > 0) {
       currentState = achievementResult.newState;
-      // Note: events from autoClaimSpecialAchievements are already emitted
     }
   }
   
   return { newState: currentState, events, changesMade };
 }
 
-// Resume dogma execution after a choice is made
+// Resume dogma execution after a choice
 export function resumeDogmaExecution(
   gameData: GameData,
   choiceAnswer: any
 ): GameResult {
-  // Find the active effect
-  const activeEffect = gameData.activeEffects[0];
-  if (!activeEffect) {
+  const currentEffect = gameData.currentEffect;
+  if (!currentEffect) {
     throw new Error('No active effect to resume');
   }
   
-  // Get the card key
-  const cardKey = getCardKeyFromId(activeEffect.cardId);
-  if (!cardKey) {
-    throw new Error(`Unknown card ID: ${activeEffect.cardId}`);
+  const card = CARDS.cardsById.get(currentEffect.cardId);
+  if (!card) {
+    throw new Error(`Unknown card ID: ${currentEffect.cardId}`);
   }
   
-  // Get the effect function
+  const cardKey = getCardKeyFromTitle(card.title);
+  if (!cardKey) {
+    throw new Error(`No effect handler for card: ${cardKey}`);
+  }
+  
   const effectFunction = effectRegistry[cardKey];
   if (!effectFunction) {
     throw new Error(`No effect handler for card: ${cardKey}`);
   }
   
-  // Create context
-  const context = createDogmaContext(gameData, activeEffect.cardId, 1, 0); // TODO: get actual values
-  
-  // Call the effect function with the choice answer
-  const result = effectFunction(context, activeEffect.effectState, choiceAnswer);
+  // Create context and call effect function
+  const context = createDogmaContext(gameData, currentEffect.cardId, 1, 0); // TODO: get actual values
+  const result = effectFunction(context, currentEffect.state, choiceAnswer);
   
   // Handle the result
   switch (result.type) {
     case 'continue':
-      // Update effect state and continue
       const continueState = {
         ...result.newState,
-        activeEffects: gameData.activeEffects.map(e => 
-          e.cardId === activeEffect.cardId 
-            ? { ...e, effectState: result.nextState }
-            : e
-        )
+        currentEffect: {
+          ...currentEffect,
+          state: result.nextState
+        }
       };
       
       return {
@@ -357,15 +249,13 @@ export function resumeDogmaExecution(
       };
       
     case 'need_choice':
-      // Need another choice
       const choiceState = {
         ...result.newState,
-        pendingChoice: result.choice,
-        activeEffects: gameData.activeEffects.map(e => 
-          e.cardId === activeEffect.cardId 
-            ? { ...e, effectState: result.nextState }
-            : e
-        )
+        currentEffect: {
+          ...currentEffect,
+          state: result.nextState,
+          choice: result.choice
+        }
       };
       
       return {
@@ -376,11 +266,7 @@ export function resumeDogmaExecution(
       };
       
     case 'complete':
-      // Effect completed - remove from active effects
-      const completeState = {
-        ...result.newState,
-        activeEffects: gameData.activeEffects.filter(e => e.cardId !== activeEffect.cardId)
-      };
+      const { currentEffect: _, ...completeState } = result.newState;
       
       return {
         newState: completeState,
@@ -390,21 +276,36 @@ export function resumeDogmaExecution(
   }
 }
 
-// Helper function to get card key from card ID
-// TODO: This should come from the card database
-function getCardKeyFromId(cardId: CardId): string | null {
-  // For now, use a simple mapping
-  // This will be replaced with proper card database lookup
-  const cardKeyMap: Record<CardId, string> = {
-    15: 'writing',      // Writing
-    5: 'codeOfLaws',    // Code of Laws
-    10: 'oars'          // Oars
+// Helper function to get card key from card title (simplified)
+function getCardKeyFromTitle(title: string): string | null {
+  const titleToKey: Record<string, string> = {
+    'Writing': 'writing',
+    'Code of Laws': 'codeOfLaws',
+    'Oars': 'oars'
   };
   
-  return cardKeyMap[cardId] || null;
+  return titleToKey[title] || null;
 }
 
-// Game result type for the new system
+// Helper function to get initial state for a card
+function getInitialState(cardKey: string): any {
+  switch (cardKey) {
+    case 'writing':
+      return { step: 'start' };
+    case 'codeOfLaws':
+      return { step: 'check_condition' };
+    case 'oars':
+      return { 
+        step: 'execute_demand', 
+        affectedPlayers: [], 
+        currentPlayerIndex: 0 
+      };
+    default:
+      return { step: 'start' };
+  }
+}
+
+// Game result type
 export interface GameResult {
   newState: GameData;
   events: GameEvent[];

@@ -289,18 +289,16 @@ export function advanceTurn(gameData: GameData): GameData {
   } else {
     // Switch to other player, new turn - clear turn actions
     const nextPlayer = currentPlayer === 0 ? 1 : 0;
-    const nextTurn = gameData.phase.turnNumber + 1;
     
     return {
       ...gameData,
       phase: {
-        state: 'AwaitingAction',
+        ...gameData.phase,
         currentPlayer: nextPlayer,
-        turnNumber: nextTurn,
-        actionsRemaining: 2, // Full actions for new turn
+        turnNumber: gameData.phase.turnNumber + 1,
+        actionsRemaining: 2
       },
-      // Clear turn actions for the new turn
-      turnActions: undefined,
+      turnActions: {} // Initialize empty turn actions for new turn
     };
   }
 }

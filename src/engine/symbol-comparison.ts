@@ -111,13 +111,6 @@ export function hasIcon(gameData: GameData, playerId: PlayerId, icon: string): b
 }
 
 /**
- * Count total icons of a specific type on a player's board
- */
-export function countIconsForPlayer(gameData: GameData, playerId: PlayerId, icon: string): number {
-  return countIcons(gameData, playerId, icon);
-}
-
-/**
  * Get the highest icon count among all players
  */
 export function getHighestIconCount(gameData: GameData, icon: string): number {

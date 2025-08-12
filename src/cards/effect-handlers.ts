@@ -13,7 +13,8 @@ import {
   drawCard, 
   tuckCard, 
   transferCard, 
-  scoreCard 
+  scoreCard,
+  countIcons
 } from '../engine/state-manipulation.js';
 
 // ============================================================================
@@ -80,9 +81,9 @@ export function codeOfLawsEffect(
   switch (state.step) {
     case 'check_condition': {
       // Check if player has the highest crown count
-      const playerCrowns = countPlayerIcons(gameData, activatingPlayer, 'crown');
+      const playerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
       const otherPlayerId: PlayerId = activatingPlayer === 0 ? 1 : 0;
-      const otherPlayerCrowns = countPlayerIcons(gameData, otherPlayerId, 'crown');
+      const otherPlayerCrowns = countIcons(gameData, otherPlayerId, 'Crown');
       
       if (playerCrowns <= otherPlayerCrowns) {
         // Player doesn't have highest crown count - effect completes immediately
@@ -195,13 +196,13 @@ export function oarsEffect(
   switch (state.step) {
     case 'execute_demand': {
       // Find players with fewer crown icons than the activating player
-      const activatingPlayerCrowns = countPlayerIcons(gameData, activatingPlayer, 'crown');
+      const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
       const affectedPlayers: PlayerId[] = [];
       
       for (let playerId = 0; playerId < 2; playerId++) {
         const typedPlayerId = playerId as PlayerId;
         if (typedPlayerId !== activatingPlayer) {
-          const playerCrowns = countPlayerIcons(gameData, typedPlayerId, 'crown');
+          const playerCrowns = countIcons(gameData, typedPlayerId, 'Crown');
           if (playerCrowns < activatingPlayerCrowns) {
             affectedPlayers.push(typedPlayerId);
           }
@@ -435,22 +436,6 @@ export function oarsEffect(
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-// Count icons for a specific player
-function countPlayerIcons(gameData: GameData, playerId: PlayerId, icon: string): number {
-  const player = gameData.players[playerId];
-  if (!player) return 0;
-  
-  let count = 0;
-  for (const colorStack of player.colors) {
-    for (const cardId of colorStack.cards) {
-      // TODO: Get actual card data and count icons
-      // For now, return a placeholder value
-      count += 1; // Placeholder
-    }
-  }
-  return count;
-}
 
 // Export all effect functions for registration
 export const CARD_EFFECT_HANDLERS = {

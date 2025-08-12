@@ -75,11 +75,12 @@ export interface GameData {
   // Shared game state
   readonly shared: SharedState;
   
-  // Current turn state
-  readonly pendingChoice?: Choice;  // Set when phase.state === 'AwaitingChoice'
-  
-  // Active effects for callback-based state machine
-  readonly activeEffects: import('./dogma.js').ActiveEffect[];
+  // Current game state - simplified from multiple overlapping properties
+  readonly currentEffect?: {
+    readonly cardId: CardId;
+    readonly state: any;
+    readonly choice?: Choice;
+  };
   
   // Turn-based action tracking for achievements
   readonly turnActions?: Partial<Record<PlayerId, TurnActions>>;
@@ -180,12 +181,12 @@ export function validateGameData(gameData: GameData): string[] {
   if (!gameData.players[1]) errors.push('Player 1 data missing');
   
   // Check phase consistency
-  if (gameData.phase.state === 'AwaitingChoice' && !gameData.pendingChoice) {
-    errors.push('Game state is AwaitingChoice but no pendingChoice is set');
+  if (gameData.phase.state === 'AwaitingChoice' && !gameData.currentEffect) {
+    errors.push('Game state is AwaitingChoice but no currentEffect is set');
   }
   
-  if (gameData.phase.state !== 'AwaitingChoice' && gameData.pendingChoice) {
-    errors.push('pendingChoice is set but game state is not AwaitingChoice');
+  if (gameData.phase.state !== 'AwaitingChoice' && gameData.currentEffect) {
+    errors.push('currentEffect is set but game state is not AwaitingChoice');
   }
   
   // Check action count

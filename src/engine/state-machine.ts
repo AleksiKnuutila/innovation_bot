@@ -118,29 +118,24 @@ export function processChoice(gameData: GameData, choiceAnswer: ChoiceAnswer): G
     throw new Error('Game is not awaiting a choice');
   }
   
-  if (!gameData.pendingChoice) {
-    throw new Error('No pending choice found');
-  }
-  
-  if (gameData.pendingChoice.id !== choiceAnswer.choiceId) {
-    throw new Error('Choice answer does not match pending choice');
-  }
-  
-  if (gameData.pendingChoice.playerId !== choiceAnswer.playerId) {
-    throw new Error('Choice answer from wrong player');
-  }
-  
-  // Check if we have active effects that need to resume
-  if (gameData.activeEffects && gameData.activeEffects.length > 0) {
-    // Resume dogma execution with the choice answer
-    const dogmaResult = resumeDogmaExecution(gameData, choiceAnswer);
+  // Handle choice if we're in choice phase
+  if (gameData.phase.state === 'AwaitingChoice') {
+    if (!gameData.currentEffect) {
+      throw new Error('Game state is AwaitingChoice but no currentEffect is set');
+    }
     
-    return {
-      newState: dogmaResult.newState,
-      events: dogmaResult.events,
-      nextPhase: dogmaResult.nextPhase,
-      ...(dogmaResult.pendingChoice && { pendingChoice: dogmaResult.pendingChoice }),
-    };
+    if (gameData.currentEffect.choice?.id !== choiceAnswer.choiceId) {
+      throw new Error('Choice ID mismatch');
+    }
+    
+    if (gameData.currentEffect.choice?.playerId !== choiceAnswer.playerId) {
+      throw new Error('Choice player mismatch');
+    }
+    
+    // Resume dogma execution
+    if (gameData.currentEffect) {
+      return resumeDogmaExecution(gameData, choiceAnswer);
+    }
   }
   
   // No active effects - just clear the choice and continue
