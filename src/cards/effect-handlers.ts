@@ -60,6 +60,24 @@ export function createSimpleEffect(
   };
 }
 
+/**
+ * Helper function to emit standardized dogma_activated event
+ * This centralizes event emission logic and reduces boilerplate
+ */
+function emitDogmaEvent(
+  gameData: GameData,
+  context: DogmaContext,
+  events: GameEvent[]
+): void {
+  const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+    playerId: context.activatingPlayer,
+    cardId: context.cardId,
+    dogmaLevel: context.dogmaLevel,
+    source: `${context.cardId}_card_effect`,
+  });
+  events.push(dogmaEvent);
+}
+
 // ============================================================================
 // Simple Card: Writing (No Choices) - SIMPLIFIED
 // ============================================================================
@@ -157,17 +175,13 @@ export function codeOfLawsEffect(
       
       if (!_choiceAnswer.answer) {
         // Player chose no - effect completes without action
-        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
-          playerId: storedActivatingPlayer,
-          cardId: context.cardId,
-          dogmaLevel: context.dogmaLevel,
-          source: 'codeOfLaws_card_effect',
-        });
+        const events: GameEvent[] = [];
+        emitDogmaEvent(gameData, context, events);
         
         return { 
           type: 'complete', 
           newState: gameData, 
-          events: [dogmaEvent] 
+          events: events
         };
       }
       
@@ -189,13 +203,7 @@ export function codeOfLawsEffect(
       }
       
       // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: storedActivatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'codeOfLaws_card_effect',
-      });
-      events.push(dogmaEvent);
+      emitDogmaEvent(newState, context, events);
       
       return { 
         type: 'complete', 
@@ -245,9 +253,7 @@ export function oarsEffect(
         let newState = gameData;
         const events: GameEvent[] = [];
         
-        newState = drawCard(newState, activatingPlayer, 1, events);
-        const drawnCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
-        newState = scoreCard(newState, activatingPlayer, drawnCardId, events);
+        newState = drawAndScore(newState, activatingPlayer, 1, 1, events);
         
         const dogmaEvent = emitEvent(newState, 'dogma_activated', {
           playerId: activatingPlayer,
@@ -275,9 +281,7 @@ export function oarsEffect(
           let newState = gameData;
           const events: GameEvent[] = [];
           
-          newState = drawCard(newState, activatingPlayer, 1, events);
-          const drawnCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
-          newState = scoreCard(newState, activatingPlayer, drawnCardId, events);
+          newState = drawAndScore(newState, activatingPlayer, 1, 1, events);
           
           const dogmaEvent = emitEvent(newState, 'dogma_activated', {
             playerId: activatingPlayer,
@@ -446,9 +450,7 @@ export function oarsEffect(
       let newState = gameData;
       const events: GameEvent[] = [];
       
-      newState = drawCard(newState, context.activatingPlayer, 1, events);
-      const drawnCardId = newState.players[context.activatingPlayer]!.hands[newState.players[context.activatingPlayer]!.hands.length - 1]!;
-      newState = scoreCard(newState, context.activatingPlayer, drawnCardId, events);
+      newState = drawAndScore(newState, context.activatingPlayer, 1, 1, events);
       
       // Emit dogma event
       const dogmaEvent = emitEvent(newState, 'dogma_activated', {
