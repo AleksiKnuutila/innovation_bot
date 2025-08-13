@@ -45,9 +45,7 @@ import {
   
   // Age 4 Cards
   anatomyEffect,
-  colonialismEffect,
   enterpriseEffect,
-  experimentationEffect,
   gunpowderEffect,
   inventionEffect,
   navigationEffect,
@@ -56,12 +54,28 @@ import {
   reformationEffect,
   
   // Age 5 Cards
-  coalEffect,
-  steamEngineEffect,
   physicsEffect,
   measurementEffect,
   astronomyEffect,
+  chemistryEffect,
 } from './effect-handlers.js';
+  
+import {
+  // Age 6 Cards
+  atomicTheoryEffect,
+} from './age6-effects.js';
+
+import {
+  // Age 4 Cards
+  experimentationEffect,
+  colonialismEffect,
+} from './age4-effects.js';
+
+import {
+  // Age 5 Cards  
+  coalEffect,
+  steamEngineEffect,
+} from './age5-effects.js';
 
 // Map card names to effect functions
 export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
@@ -123,6 +137,10 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Physics': physicsEffect,
   'Measurement': measurementEffect,
   'Astronomy': astronomyEffect,
+  'Chemistry': chemistryEffect,
+  
+  // Age 6 Cards
+  'Atomic Theory': atomicTheoryEffect,
 } as const;
 
 // Get effect function by card name

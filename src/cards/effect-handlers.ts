@@ -4779,3 +4779,92 @@ export const astronomyEffect = createSimpleEffect((context: DogmaContext) => {
   
   return [newState, events];
 });
+
+// ============================================================================
+// Age 5 Card: Chemistry (ID 48) - Optional splay blue right, draw/score higher, return score card
+// ============================================================================
+
+export const chemistryEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Level 1: Optional splay blue right
+  const blueStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Blue' && stack.cards.length > 1
+  );
+  if (blueStack) {
+    newState = splayColor(newState, activatingPlayer, 'Blue', 'right', events);
+  }
+  
+  // Level 2: Draw and score card one higher than highest top card, then return score card
+  // Find highest top card age
+  let highestAge = 0;
+  for (const colorStack of newState.players[activatingPlayer]!.colors) {
+    if (colorStack.cards.length > 0) {
+      const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
+      const topCard = CARDS.cardsById.get(topCardId);
+      if (topCard && topCard.age > highestAge) {
+        highestAge = topCard.age;
+      }
+    }
+  }
+  
+  // Draw and score one higher than highest
+  const drawAge = highestAge + 1;
+  newState = drawAndScore(newState, activatingPlayer, drawAge, 1, events);
+  
+  // Return a card from score pile (simplified - return the first one if any)
+  const player = newState.players[activatingPlayer]!;
+  if (player.scores.length > 0) {
+    const cardToReturn = player.scores[0]!;
+    const card = CARDS.cardsById.get(cardToReturn);
+    if (card) {
+      // Remove from score pile
+      const scoreIndex = newState.players[activatingPlayer]!.scores.indexOf(cardToReturn);
+      newState.players[activatingPlayer]!.scores.splice(scoreIndex, 1);
+      
+      // Add to supply pile
+      const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+      if (supplyPile) {
+        supplyPile.cards.push(cardToReturn);
+        
+        // Emit return event
+        const returnEvent = emitEvent(newState, 'returned', {
+          playerId: activatingPlayer,
+          cardId: cardToReturn,
+          fromZone: { playerId: activatingPlayer, zone: 'score' },
+          toAge: card.age,
+        });
+        events.push(returnEvent);
+      }
+    }
+  }
+  
+  return [newState, events];
+});
+
+// ============================================================================
+// Age 6 Cards
+// ============================================================================
+
+// Age 6 Card: Atomic Theory (ID 56) - Optional splay blue right, draw and meld 7
+export const atomicTheoryEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Level 1: Optional splay blue right
+  const blueStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Blue' && stack.cards.length > 1
+  );
+  if (blueStack) {
+    newState = splayColor(newState, activatingPlayer, 'Blue', 'right', events);
+  }
+  
+  // Level 2: Draw and meld a 7
+  newState = drawAndMeld(newState, activatingPlayer, 7, 1, events);
+  
+  return [newState, events];
+});
+

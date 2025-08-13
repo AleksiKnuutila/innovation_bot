@@ -122,7 +122,7 @@ describe('Age 5 Card Effects', () => {
       expect(scoredEvents[0]).toMatchObject({
         type: 'scored',
         playerId: player1,
-        cardId: 55 // Steam Engine card itself
+        cardIds: [55] // Steam Engine itself
       });
     });
   });
@@ -213,6 +213,54 @@ describe('Age 5 Card Effects', () => {
       // Should not return, splay, or draw anything
       const returnedEvents = dogmaResult.events.filter(e => e.type === 'returned');
       expect(returnedEvents).toHaveLength(0);
+    });
+  });
+
+  describe('Chemistry (ID 48)', () => {
+    it('should optionally splay blue right, draw/score higher than highest, and return score card', () => {
+      let state = createGameWithMeldCard(48, player1); // Meld Chemistry (blue)
+      
+      // Add another blue card for splaying
+      state = addCardsToHand(state, player1, [18]); // Construction (blue)
+      // Make sure Chemistry and Construction are in same blue stack
+      const chemistryStack = state.players[player1].colors.find(stack => stack.color === 'Blue');
+      if (chemistryStack) {
+        chemistryStack.cards.push(18);
+      }
+      
+      // Add some score cards to return
+      state = addCardsToScore(state, player1, [1, 2]);
+      
+      const dogmaResult = processDogmaAction(state, 48, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Blue', direction: 'right' })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew' })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored' })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned' })
+      );
+    });
+
+    it('should complete without splaying if no blue cards to splay', () => {
+      let state = createGameWithMeldCard(48, player1); // Just Chemistry
+      
+      const dogmaResult = processDogmaAction(state, 48, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should still draw and score based on highest (Chemistry is age 5)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew' })
+      );
     });
   });
 }); 

@@ -327,26 +327,13 @@ function getInitialState(cardName: string): any {
       return { step: 'waiting_return_choice' };
       
     // Age 4 Cards
-    case 'Anatomy':
-      return { step: 'demand_return_score' };
-    case 'Colonialism':
-      return { step: 'start' }; // Simple effect
-    case 'Enterprise':
-      return { step: 'demand_transfer' };
-    case 'Experimentation':
-      return { step: 'start' }; // Simple effect
-    case 'Gunpowder':
-      return { step: 'demand_transfer' };
-    case 'Invention':
-      return { step: 'check_splay_options' };
-    case 'Navigation':
-      return { step: 'demand_transfer' }; // Demand effect (not placeholder)
-    case 'Perspective':
-      return { step: 'check_hand' }; // Optional choice effect (not placeholder)
-    case 'Printing Press':
-      return { step: 'check_score_choice' }; // Optional choice effect (not placeholder)
-    case 'Reformation':
-      return { step: 'start' }; // Simple effect (placeholder)
+    case 'Invention': return { step: 'check_splay_options' };
+    case 'Navigation': return { step: 'demand_transfer' };
+    case 'Perspective': return { step: 'check_hand' };
+    case 'Printing Press': return { step: 'check_score_choice' };
+    
+    // Age 6 Cards
+    case 'Atomic Theory': return { step: 'check_splay_choice' };
       
     // Age 5 Cards
     case 'Coal':
