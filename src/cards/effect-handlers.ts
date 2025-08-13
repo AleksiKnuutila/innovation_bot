@@ -2381,6 +2381,142 @@ export function roadBuildingEffect(
 } 
 
 // ============================================================================
+// Age 3 Card Effects (IDs 26-35)
+// ============================================================================
+
+// Alchemy: "Draw and reveal a 4 for every three [Castle] icons on your board. If any of the drawn cards are red, return the cards drawn and all cards in your hand. Otherwise, keep them." - SIMPLIFIED
+export const alchemyEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  
+  // Count castle icons and calculate how many 4s to draw
+  const castleCount = countIcons(gameData, activatingPlayer, 'Castle');
+  const cardsToDraw = Math.floor(castleCount / 3);
+  
+  if (cardsToDraw === 0) {
+    return [gameData, []];
+  }
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  const drawnCards: CardId[] = [];
+  
+  // Draw and reveal the 4s
+  for (let i = 0; i < cardsToDraw; i++) {
+    newState = drawCard(newState, activatingPlayer, 4, events);
+    const drawnCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
+    drawnCards.push(drawnCardId);
+    
+    // Reveal the drawn card
+    newState = revealCard(newState, activatingPlayer, drawnCardId, events);
+  }
+  
+  // Check if any drawn cards are red
+  const hasRedCard = drawnCards.some(cardId => {
+    const card = CARDS.cardsById.get(cardId);
+    return card && card.color === 'Red';
+  });
+  
+  if (hasRedCard) {
+    // Return all drawn cards and all cards in hand
+    const player = newState.players[activatingPlayer]!;
+    
+    // Return drawn cards
+    for (const cardId of drawnCards) {
+      const card = CARDS.cardsById.get(cardId);
+      if (card) {
+        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+      }
+    }
+    
+    // Return all cards in hand
+    const handCards = [...player.hands];
+    for (const cardId of handCards) {
+      const card = CARDS.cardsById.get(cardId);
+      if (card) {
+        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+      }
+    }
+  }
+  // Otherwise, keep the drawn cards (they're already in hand)
+  
+  return [newState, events];
+});
+
+// Optics: "Draw and meld a 3. If it has a [Crown], draw and score a 4. Otherwise, transfer a card from your score pile to the score pile of an opponent with fewer points than you." - SIMPLIFIED
+export const opticsEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw and meld a 3
+  newState = drawAndMeld(newState, activatingPlayer, 3, 1, events);
+  
+  // Get the melded card to check for crown
+  const meldedCardId = newState.players[activatingPlayer]!.colors.flatMap(stack => stack.cards).find(id => 
+    !gameData.players[activatingPlayer]!.colors.flatMap(stack => stack.cards).includes(id)
+  );
+  
+  if (meldedCardId && hasIcon(newState, activatingPlayer, 'Crown')) {
+    // Has crown - draw and score a 4
+    newState = drawAndScore(newState, activatingPlayer, 4, 1, events);
+  } else {
+    // No crown - transfer a card from score to opponent with fewer points
+    const otherPlayer = activatingPlayer === 0 ? 1 : 0;
+    const activatingPlayerPoints = newState.players[activatingPlayer]!.scores.length;
+    const otherPlayerPoints = newState.players[otherPlayer]!.scores.length;
+    
+    if (activatingPlayerPoints > otherPlayerPoints && newState.players[activatingPlayer]!.scores.length > 0) {
+      // Transfer highest score card to opponent
+      const highestScoreCard = newState.players[activatingPlayer]!.scores.reduce((highest, current) => {
+        const highestCard = CARDS.cardsById.get(highest);
+        const currentCard = CARDS.cardsById.get(current);
+        return (currentCard && highestCard && currentCard.age > highestCard.age) ? current : highest;
+      });
+      
+      newState = transferCard(newState, activatingPlayer, otherPlayer, highestScoreCard, 'score', 'score', events);
+    }
+  }
+  
+  return [newState, events];
+});
+
+// Translation: "You may meld all the cards in your score pile. If you meld one, you must meld them all. If each top card on your board has a [Crown], claim the World achievement." - SIMPLIFIED
+export const translationEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  
+  const player = gameData.players[activatingPlayer]!;
+  
+  if (player.scores.length === 0) {
+    return [gameData, []];
+  }
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Meld all score cards
+  for (const cardId of player.scores) {
+    newState = meldCard(newState, activatingPlayer, cardId, events);
+  }
+  
+  // Check if each top card has a crown
+  const topCards = getTopCards(newState, activatingPlayer);
+  const allHaveCrowns = topCards.every(() => hasIcon(newState, activatingPlayer, 'Crown'));
+  
+  if (allHaveCrowns) {
+    // Claim World achievement
+    const achievementEvent = emitEvent(newState, 'achievement_claimed', {
+      playerId: activatingPlayer,
+      achievementId: 'world',
+      source: 'translation_card_effect'
+    });
+    events.push(achievementEvent);
+  }
+  
+  return [newState, events];
+});
+
+// ============================================================================
 // Export all effect functions for registration
 // ============================================================================
 
@@ -2413,4 +2549,9 @@ export const CARD_EFFECT_HANDLERS = {
   23: monotheismEffect,      // Monotheism
   24: philosophyEffect,      // Philosophy
   25: roadBuildingEffect,    // Road Building
+  
+  // Age 3 Cards (IDs 26-35)
+  26: alchemyEffect,          // Alchemy
+  27: opticsEffect,            // Optics
+  28: translationEffect,       // Translation
 };
