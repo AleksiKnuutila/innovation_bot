@@ -22,8 +22,9 @@
 - ✅ Phase 7d.2: Age 2 Cards Implementation
 - ✅ Phase 7e: Testing Strategy (framework established)
 - ✅ Phase 7f: Validation and Quality Assurance (framework established)
+- ✅ **Phase 7g: Architectural Simplification** - **COMPLETED**
 
-**Next Priority**: **Phase 7g: Architectural Simplification** - Fix critical architectural issues before continuing
+**Next Priority**: **Phase 7d.3: Implement Age 3 Cards** - Continue with Age 3+ implementation using improved architecture
 
 ## Phase 7a: Card Database Expansion
 
@@ -312,7 +313,7 @@
 
 ## Phase 7g: Architectural Simplification (NEW - HIGH PRIORITY)
 
-### Task 7g.1: Simplify Simple Effects (Immediate Impact)
+### Task 7g.1: Simplify Simple Effects (Immediate Impact) ✅ **COMPLETED**
 - **Description**: Reduce simple effect code by 60-70% by removing unnecessary state machine complexity
 - **Files**: `src/cards/effect-handlers.ts`, `src/engine/dogma-resolver.ts`
 - **Output**: Simplified simple effects, reduced boilerplate
@@ -321,15 +322,15 @@
 - **Priority**: **CRITICAL** - Must complete before continuing Age 3+ cards
 
 **Subtasks**:
-- [ ] Create `createSimpleEffect` wrapper for effects without choices
-- [ ] Refactor simple effects (Writing, The Wheel, etc.) to use new pattern
-- [ ] Reserve state machine pattern only for complex multi-choice effects
-- [ ] Update dogma resolver to handle simplified effects
-- [ ] Verify all Age 1 and Age 2 tests still pass
+- [x] Create `createSimpleEffect` wrapper for effects without choices
+- [x] Refactor simple effects (Writing, The Wheel, etc.) to use new pattern
+- [x] Reserve state machine pattern only for complex multi-choice effects
+- [x] Update dogma resolver to handle simplified effects
+- [x] Verify all Age 1 and Age 2 tests still pass
 
 **Expected Impact**: 40-60% code reduction for simple effects
 
-### Task 7g.2: Fix Registry System (High Impact)
+### Task 7g.2: Fix Registry System (High Impact) ✅ **COMPLETED**
 - **Description**: Eliminate confusion and hardcoded mappings in card effect registry
 - **Files**: `src/engine/dogma-resolver.ts`, `src/cards/effect-handlers.ts`
 - **Output**: Clean, unified registry system
@@ -338,16 +339,16 @@
 - **Priority**: **HIGH** - Eliminates major confusion
 
 **Subtasks**:
-- [ ] Unify on numeric IDs throughout the system
-- [ ] Remove `getCardKeyFromTitle()` and string-to-ID conversions
-- [ ] Generate registry automatically from card database
-- [ ] Remove hardcoded title-to-ID mappings
-- [ ] Remove hardcoded ID-to-initial-state mappings
-- [ ] Update all references to use unified system
+- [x] Unify on numeric IDs throughout the system
+- [x] Remove `getCardKeyFromTitle()` and string-to-ID conversions
+- [x] Generate registry automatically from card database
+- [x] Remove hardcoded title-to-ID mappings
+- [x] Remove hardcoded ID-to-initial-state mappings
+- [x] Update all references to use unified system
 
 **Expected Impact**: Eliminates confusion, removes hardcoded mappings
 
-### Task 7g.3: Consolidate Primitives (Medium Impact)
+### Task 7g.3: Consolidate Primitives (Medium Impact) ✅ **COMPLETED**
 - **Description**: Ensure consistent use of high-level primitives across all effects
 - **Files**: `src/cards/effect-handlers.ts`, `src/engine/state-manipulation.ts`
 - **Output**: Consistent abstraction levels
@@ -356,15 +357,15 @@
 - **Priority**: **MEDIUM** - Improves consistency
 
 **Subtasks**:
-- [ ] Audit all effects to use high-level primitives consistently
-- [ ] Remove redundant low-level `drawCard()` + `scoreCard()` sequences
-- [ ] Standardize return patterns across all effects
-- [ ] Update effects to use `drawAndScore()`, `drawAndMeld()`, etc.
-- [ ] Remove overengineered primitives like `drawAndSplay()`
+- [x] Audit all effects to use high-level primitives consistently
+- [x] Remove redundant low-level `drawCard()` + `scoreCard()` sequences
+- [x] Standardize return patterns across all effects
+- [x] Update effects to use `drawAndScore()`, `drawAndMeld()`, etc.
+- [x] Remove overengineered primitives like `drawAndSplay()`
 
 **Expected Impact**: Consistent abstraction levels, reduced maintenance
 
-### Task 7g.4: Simplify Event System (Low Impact, High Value)
+### Task 7g.4: Simplify Event System (Low Impact, High Value) ✅ **COMPLETED**
 - **Description**: Eliminate boilerplate event emission from individual effects
 - **Files**: `src/engine/dogma-resolver.ts`, `src/cards/effect-handlers.ts`
 - **Output**: Automatic event emission, reduced boilerplate
@@ -373,10 +374,10 @@
 - **Priority**: **LOW** - Removes boilerplate
 
 **Subtasks**:
-- [ ] Implement automatic `dogma_activated` event emission in resolver
-- [ ] Remove manual event emission from individual effects
-- [ ] Centralize common event patterns
-- [ ] Update all effects to remove boilerplate
+- [x] Implement automatic `dogma_activated` event emission in resolver
+- [x] Remove manual event emission from individual effects
+- [x] Centralize common event patterns
+- [x] Update all effects to remove boilerplate
 
 **Expected Impact**: Eliminates repetitive event emission code
 
@@ -539,12 +540,14 @@
 - [ ] No regression in existing functionality
 
 ### **Phase 7g Success Criteria**:
-- [ ] Simple effects reduced by 60-70% in code size
-- [ ] Registry system unified and confusion eliminated
-- [ ] Primitives used consistently across all effects
-- [ ] Event system boilerplate eliminated
-- [ ] All existing tests still pass
-- [ ] Architecture ready for Age 3+ implementation
+- [x] Simple effects reduced by 60-70% in code size
+- [x] Registry system unified and confusion eliminated
+- [x] Primitives used consistently across all effects
+- [x] Event system boilerplate eliminated
+- [x] All existing tests still pass
+- [x] Architecture ready for Age 3+ implementation
+
+**Phase 7g Status**: ✅ **COMPLETED** - All architectural simplification tasks completed successfully
 
 ## Timeline Estimate
 
