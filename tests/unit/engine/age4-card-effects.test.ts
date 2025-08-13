@@ -207,6 +207,12 @@ describe('Age 4 Card Effects', () => {
     it('should offer optional choice to return hand card and score based on Lightbulb icons', () => {
       let state = createGameWithMeldCard(43, player1); // Meld Perspective (has 2 Lightbulb icons)
       
+      // Splay Perspective right to make its Lightbulb icons visible
+      const perspectiveStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (perspectiveStack) {
+        perspectiveStack.splayDirection = 'right'; // This reveals left and middle positions
+      }
+      
       // Add cards to hand
       state = addCardsToHand(state, player1, [1, 2, 3]); // Some cards to return/score
       
@@ -313,6 +319,12 @@ describe('Age 4 Card Effects', () => {
   describe('Reformation (ID 45)', () => {
     it('should tuck cards based on Leaf icons and splay yellow/purple right', () => {
       let state = createGameWithMeldCard(45, player1); // Meld Reformation (has 2 Leaf icons)
+      
+      // Splay Reformation right to make its Leaf icons visible
+      const reformationPurpleStack = state.players[player1].colors.find(stack => stack.color === 'Purple');
+      if (reformationPurpleStack) {
+        reformationPurpleStack.splayDirection = 'right'; // This reveals left and middle positions
+      }
       
       // Add cards to hand to tuck
       state = addCardsToHand(state, player1, [1, 2, 3]); // Some cards to tuck

@@ -49,9 +49,6 @@ import {
   gunpowderEffect,
   inventionEffect,
   navigationEffect,
-  perspectiveEffect,
-  printingPressEffect,
-  reformationEffect,
   
   // Age 5 Cards
   physicsEffect,
@@ -69,6 +66,9 @@ import {
   // Age 4 Cards
   experimentationEffect,
   colonialismEffect,
+  perspectiveEffect,
+  printingPressEffect,
+  reformationEffect,
 } from './age4-effects.js';
 
 import {
