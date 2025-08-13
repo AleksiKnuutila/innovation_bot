@@ -577,7 +577,28 @@ export function agricultureEffect(
       const events: GameEvent[] = [];
       
       // Return the card
-      newState = returnCard(newState, activatingPlayer, returnedCardId, returnedCard.age, events);
+      // Remove from score pile
+      const scoreIndex = newState.players[activatingPlayer]!.scores.indexOf(returnedCardId);
+      if (scoreIndex === -1) {
+        throw new Error(`Card ${returnedCardId} not found in score pile`);
+      }
+      newState.players[activatingPlayer]!.scores.splice(scoreIndex, 1);
+      
+      // Add to supply pile
+      const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === returnedCard.age);
+      if (!supplyPile) {
+        throw new Error(`Supply pile for age ${returnedCard.age} not found`);
+      }
+      supplyPile.cards.push(returnedCardId);
+      
+      // Emit return event
+      const returnEvent = emitEvent(newState, 'returned', {
+        playerId: activatingPlayer,
+        cardId: returnedCardId,
+        fromZone: { playerId: activatingPlayer, zone: 'score' },
+        toAge: returnedCard.age,
+      });
+      events.push(returnEvent);
       
       // Draw and score a card one age higher
       const targetAge = returnedCard.age + 1;
@@ -4351,18 +4372,219 @@ export function perspectiveEffect(
 // Simple Card: Printing Press (ID 44) - Optional return score card, optional splay blue
 // ============================================================================
 
-export const printingPressEffect = createSimpleEffect((context: DogmaContext) => {
-  // Effect not implemented yet - should fail
-  throw new Error('Printing Press effect not implemented yet');
-});
+interface PrintingPressState {
+  step: 'check_score_choice' | 'waiting_return_choice' | 'check_splay_choice' | 'waiting_splay_choice';
+}
+
+export function printingPressEffect(
+  context: DogmaContext,
+  state: PrintingPressState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_score_choice': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.scores.length === 0) {
+        // No score cards, skip to splay choice
+        return {
+          type: 'continue',
+          newState,
+          events,
+          nextState: {
+            ...state,
+            step: 'check_splay_choice'
+          }
+        };
+      }
+
+      // Offer optional choice to return a score card
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `printing_press_return_${activatingPlayer}`,
+          type: 'select_cards',
+          playerId: activatingPlayer,
+          prompt: 'You may return a card from your score pile. If you do, draw based on top purple card.',
+          source: 'printing_press_card_effect',
+          from: { zone: 'score', playerId: activatingPlayer },
+          minCards: 0,
+          maxCards: 1
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_return_choice'
+        }
+      };
+    }
+
+    case 'waiting_return_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+        // No choice made, proceed to splay choice
+        return {
+          type: 'continue',
+          newState,
+          events,
+          nextState: {
+            ...state,
+            step: 'check_splay_choice'
+          }
+        };
+      }
+
+      if (choiceAnswer.selectedCards.length === 0) {
+        // Player chose not to return a card, proceed to splay choice
+        return {
+          type: 'continue',
+          newState,
+          events,
+          nextState: {
+            ...state,
+            step: 'check_splay_choice'
+          }
+        };
+      }
+
+      const returnedCardId = choiceAnswer.selectedCards[0]!;
+      const returnedCard = CARDS.cardsById.get(returnedCardId);
+      
+      if (!returnedCard) {
+        throw new Error(`Card ${returnedCardId} not found in database`);
+      }
+
+      // Return the card to supply
+      newState = returnCard(newState, activatingPlayer, returnedCardId, returnedCard.age, events);
+
+      // Find top purple card age (or 0 if no purple cards)
+      const purpleStack = newState.players[activatingPlayer]!.colors.find(
+        stack => stack.color === 'Purple' && stack.cards.length > 0
+      );
+      
+      let purpleAge = 0;
+      if (purpleStack) {
+        const topPurpleCardId = purpleStack.cards[purpleStack.cards.length - 1]!;
+        const topPurpleCard = CARDS.cardsById.get(topPurpleCardId);
+        if (topPurpleCard) {
+          purpleAge = topPurpleCard.age;
+        }
+      }
+
+      // Draw card of value two higher than top purple card
+      const drawAge = purpleAge + 2;
+      newState = drawCard(newState, activatingPlayer, drawAge, events);
+
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: {
+          ...state,
+          step: 'check_splay_choice'
+        }
+      };
+    }
+
+    case 'check_splay_choice': {
+      // Check if player has blue cards to splay
+      const blueStack = gameData.players[activatingPlayer]!.colors.find(
+        stack => stack.color === 'Blue'
+      );
+      
+      if (!blueStack || blueStack.cards.length <= 1) {
+        // No blue cards or only one blue card, cannot splay
+        return { type: 'complete', newState, events };
+      }
+
+      // Offer optional choice to splay blue right
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `printing_press_splay_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may splay your blue cards right.',
+          source: 'printing_press_card_effect',
+          yesText: 'Splay blue right',
+          noText: 'Skip'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_splay_choice'
+        }
+      };
+    }
+
+    case 'waiting_splay_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events };
+      }
+
+      if (choiceAnswer.answer === true) {
+        // Player chose to splay blue right
+        newState = splayColor(newState, activatingPlayer, 'Blue', 'right', events);
+      }
+
+      return { type: 'complete', newState, events };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
 
 // ============================================================================
 // Simple Card: Reformation (ID 45) - Optional tuck based on Leaf icons, optional splay
 // ============================================================================
 
 export const reformationEffect = createSimpleEffect((context: DogmaContext) => {
-  // Effect not implemented yet - should fail
-  throw new Error('Reformation effect not implemented yet');
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  const player = newState.players[activatingPlayer]!;
+  
+  // Count Leaf icons and calculate how many cards to tuck
+  const leafCount = countIcons(gameData, activatingPlayer, 'Leaf');
+  const cardsToTuck = Math.floor(leafCount / 2);
+  
+  // Tuck cards from hand (up to the calculated amount)
+  for (let i = 0; i < cardsToTuck && player.hands.length > 0; i++) {
+    const cardToTuck = player.hands[player.hands.length - 1]!; // Tuck from top of hand
+    const card = CARDS.cardsById.get(cardToTuck);
+    if (!card) {
+      throw new Error(`Card ${cardToTuck} not found in database`);
+    }
+    newState = tuckCard(newState, activatingPlayer, cardToTuck, card.color, events);
+  }
+  
+  // Optional splay yellow and purple right (simplified - just do it if possible)
+  const yellowStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Yellow' && stack.cards.length > 1
+  );
+  if (yellowStack) {
+    newState = splayColor(newState, activatingPlayer, 'Yellow', 'right', events);
+  }
+  
+  const purpleStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Purple' && stack.cards.length > 1
+  );
+  if (purpleStack) {
+    newState = splayColor(newState, activatingPlayer, 'Purple', 'right', events);
+  }
+  
+  return [newState, events];
 });
 
 // ============================================================================
@@ -4482,3 +4704,78 @@ export const physicsEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// ============================================================================
+// Age 5 Card: Measurement (ID 50) - Optional return hand, splay color right, draw based on count
+// ============================================================================
+
+export const measurementEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  const player = newState.players[activatingPlayer]!;
+  
+  // Simplified: if player has hand cards, return one and splay any available color right
+  if (player.hands.length > 0) {
+    const cardToReturn = player.hands[player.hands.length - 1]!;
+    const card = CARDS.cardsById.get(cardToReturn);
+    if (card) {
+      newState = returnCard(newState, activatingPlayer, cardToReturn, card.age, events);
+      
+      // Find a color with 2+ cards to splay right
+      const colorToSplay = newState.players[activatingPlayer]!.colors.find(
+        stack => stack.cards.length > 1
+      );
+      
+      if (colorToSplay) {
+        newState = splayColor(newState, activatingPlayer, colorToSplay.color, 'right', events);
+        
+        // Draw cards equal to the number of cards in that color
+        const cardCount = colorToSplay.cards.length;
+        for (let i = 0; i < cardCount; i++) {
+          newState = drawCard(newState, activatingPlayer, cardCount, events);
+        }
+      }
+    }
+  }
+  
+  return [newState, events];
+});
+
+// ============================================================================
+// Age 5 Card: Astronomy (ID 46) - Draw/reveal 6, meld if green/blue, repeat
+// ============================================================================
+
+export const astronomyEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Simplified: Draw and reveal a 6, meld if green or blue (no repeat for now)
+  newState = drawCard(newState, activatingPlayer, 6, events);
+  
+  const player = newState.players[activatingPlayer]!;
+  const drawnCardId = player.hands[player.hands.length - 1];
+  
+  if (drawnCardId !== undefined) {
+    const drawnCard = CARDS.cardsById.get(drawnCardId);
+    
+    // Emit reveal event
+    const revealEvent = emitEvent(newState, 'card_revealed', {
+      playerId: activatingPlayer,
+      cardId: drawnCardId,
+      fromZone: 'hand'
+    });
+    events.push(revealEvent);
+    
+    // If green or blue, meld it
+    if (drawnCard && (drawnCard.color === 'Green' || drawnCard.color === 'Blue')) {
+      newState = meldCard(newState, activatingPlayer, drawnCardId, events);
+    }
+    
+    // TODO: Check Universe achievement (if all non-purple top cards are age 6+)
+    // TODO: Add repeat logic for green/blue cards
+  }
+  
+  return [newState, events];
+});

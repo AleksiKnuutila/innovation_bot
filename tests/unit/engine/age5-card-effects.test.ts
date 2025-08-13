@@ -170,4 +170,49 @@ describe('Age 5 Card Effects', () => {
       // In practice, we'd want to set up specific supply pile contents for deterministic testing
     });
   });
+
+  describe('Measurement (ID 50)', () => {
+    it('should return hand card, splay color right, and draw based on card count', () => {
+      let state = createGameWithMeldCard(50, player1); // Meld Measurement
+      
+      // Add cards to hand
+      state = addCardsToHand(state, player1, [1, 2, 3]);
+      
+      // Add some cards to create a splayable color stack
+      state = addCardsToHand(state, player1, [16, 17]); // Calendar, Canal Building (both blue)
+      const blueStack = {
+        color: 'Blue',
+        cards: [16, 17], // 2 cards, can be splayed
+        splayDirection: undefined
+      };
+      state.players[player1].colors.push(blueStack);
+      
+      const dogmaResult = processDogmaAction(state, 50, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned' })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Blue', direction: 'right' })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew' })
+      );
+    });
+
+    it('should complete without action if no hand cards', () => {
+      let state = createGameWithMeldCard(50, player1); // Just Measurement
+      
+      const dogmaResult = processDogmaAction(state, 50, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not return, splay, or draw anything
+      const returnedEvents = dogmaResult.events.filter(e => e.type === 'returned');
+      expect(returnedEvents).toHaveLength(0);
+    });
+  });
 }); 

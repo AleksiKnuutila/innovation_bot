@@ -344,7 +344,7 @@ function getInitialState(cardName: string): any {
     case 'Perspective':
       return { step: 'check_hand' }; // Optional choice effect (not placeholder)
     case 'Printing Press':
-      return { step: 'start' }; // Simple effect (placeholder)
+      return { step: 'check_score_choice' }; // Optional choice effect (not placeholder)
     case 'Reformation':
       return { step: 'start' }; // Simple effect (placeholder)
       

@@ -258,24 +258,110 @@ describe('Age 4 Card Effects', () => {
   });
 
   describe('Printing Press (ID 44)', () => {
-    it('should fail because effect is not properly implemented yet', () => {
+    it('should offer optional choices for returning score card and splaying blue', () => {
       let state = createGameWithMeldCard(44, player1); // Meld Printing Press
       
-      // This should throw an error because the effect is not implemented
-      expect(() => {
-        processDogmaAction(state, 44, player1);
-      }).toThrow('Printing Press effect not implemented yet');
+      // Add cards to score pile
+      state = addCardsToScore(state, player1, [1, 2, 3]); 
+      
+      // Add some blue cards to board for splaying
+      state = addCardsToHand(state, player1, [18]); // Construction (blue)
+      const blueStack = {
+        color: 'Blue',
+        cards: [44, 18], // Printing Press + Construction  
+        splayDirection: undefined
+      };
+      state.players[player1].colors.push(blueStack);
+      
+      const dogmaResult = processDogmaAction(state, 44, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice?.type).toBe('select_cards');
+      expect(dogmaResult.pendingChoice?.playerId).toBe(player1);
+
+      // Player 1 chooses to return a score card
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `printing_press_return_${player1}`,
+        playerId: player1,
+        selectedCards: [1], // Return Writing
+        timestamp: Date.now()
+      });
+
+      // Should proceed to splay choice after drawing
+      expect(choiceResult.nextPhase).toBe('AwaitingChoice');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 1 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew' }) // Drew age 2 (0 + 2)
+      );
+    });
+
+    it('should complete without choices when no score cards and no blue cards', () => {
+      let state = createGameWithMeldCard(44, player1); // Just Printing Press
+      
+      const dogmaResult = processDogmaAction(state, 44, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
     });
   });
 
   describe('Reformation (ID 45)', () => {
-    it('should fail because effect is not properly implemented yet', () => {
-      let state = createGameWithMeldCard(45, player1); // Meld Reformation
+    it('should tuck cards based on Leaf icons and splay yellow/purple right', () => {
+      let state = createGameWithMeldCard(45, player1); // Meld Reformation (has 2 Leaf icons)
       
-      // This should throw an error because the effect is not implemented
-      expect(() => {
-        processDogmaAction(state, 45, player1);
-      }).toThrow('Reformation effect not implemented yet');
+      // Add cards to hand to tuck
+      state = addCardsToHand(state, player1, [1, 2, 3]); // Some cards to tuck
+      
+      // Add some yellow/purple cards for splaying
+      state = addCardsToHand(state, player1, [3, 9]); // City States (purple), Mysticism (purple)
+      // Meld City States to create a purple stack with 2+ cards
+      const cityStatesColorStack = {
+        color: 'Purple',
+        cards: [3], // City States
+        splayDirection: undefined
+      };
+      state.players[player1].colors.push(cityStatesColorStack);
+      
+      // Now Reformation and City States should be in separate purple stacks, but let's merge them
+      // Find the existing purple stack (Reformation) and add City States to it
+      const reformationStack = state.players[player1].colors.find(stack => stack.color === 'Purple');
+      if (reformationStack) {
+        reformationStack.cards.push(3); // Add City States to the same stack
+      }
+      
+      const dogmaResult = processDogmaAction(state, 45, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should tuck 1 card (2 Leaf icons / 2 = 1 card)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'tucked' })
+      );
+      // Should splay purple right
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Purple', direction: 'right' })
+      );
+    });
+
+    it('should complete without tucking if no hand cards', () => {
+      let state = createGameWithMeldCard(45, player1); // Just Reformation
+      
+      const dogmaResult = processDogmaAction(state, 45, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not tuck any cards
+      const tuckedEvents = dogmaResult.events.filter(e => e.type === 'tucked');
+      expect(tuckedEvents).toHaveLength(0);
     });
   });
 

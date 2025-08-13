@@ -59,6 +59,8 @@ import {
   coalEffect,
   steamEngineEffect,
   physicsEffect,
+  measurementEffect,
+  astronomyEffect,
 } from './effect-handlers.js';
 
 // Map card names to effect functions
@@ -119,6 +121,8 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Coal': coalEffect,
   'Steam Engine': steamEngineEffect,
   'Physics': physicsEffect,
+  'Measurement': measurementEffect,
+  'Astronomy': astronomyEffect,
 } as const;
 
 // Get effect function by card name
