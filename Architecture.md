@@ -395,7 +395,115 @@ interface ComplexCardState {
 }
 ```
 
-### 2. Avoid Unnecessary Step Branches
+### 2. Step Naming and Initial State Registry
+
+**Critical Discovery**: The engine uses a centralized registry to define the initial step for each card effect. This registry is located in `src/engine/dogma-resolver.ts` in the `getInitialState()` function.
+
+```typescript
+// In src/engine/dogma-resolver.ts
+function getInitialState(cardName: string): any {
+  switch (cardName) {
+    case 'Code of Laws':
+      return { step: 'check_condition' };
+    case 'Oars':
+      return { 
+        step: 'execute_demand', 
+        affectedPlayers: [], 
+        currentPlayerIndex: 0 
+      };
+    case 'Invention':
+      return { step: 'check_splay_options' };
+    // ... more cards
+    default:
+      return { step: 'start' };
+  }
+}
+```
+
+**Step Naming Conventions**:
+- `'check_condition'` - For effects that need to validate prerequisites
+- `'execute_demand'` - For demand effects that process vulnerable players
+- `'waiting_[action]_choice'` - For steps that require player input
+- `'start'` - Default for simple effects or placeholder implementations
+
+**When Adding New Cards**:
+1. **Add to the registry first** - Define the initial step in `getInitialState()`
+2. **Match the step name** - Your effect's first `case` must match the registry
+3. **Use descriptive names** - Step names should clearly indicate what happens
+
+```typescript
+// ✅ Good - Registry and effect match
+// In getInitialState():
+case 'My New Card':
+  return { step: 'check_prerequisites' };
+
+// In effect function:
+switch (state.step) {
+  case 'check_prerequisites': {
+    // Implementation here
+  }
+}
+
+// ❌ Bad - Mismatch will cause "Unknown step" errors
+// Registry says 'check_prerequisites' but effect expects 'start'
+```
+
+**Simple Effects vs State Machine Effects**:
+- **Simple Effects**: Use `createSimpleEffect()` wrapper, get `{ step: 'start' }` by default
+- **State Machine Effects**: Need explicit registry entry with meaningful first step name
+
+### 3. Multi-Step Effect Flow with 'continue'
+
+**Critical Pattern**: When an effect needs to proceed through multiple steps automatically (without user input), use `type: 'continue'` to chain steps together.
+
+```typescript
+// Example: Effect that validates, then processes, then completes
+switch (state.step) {
+  case 'check_prerequisites': {
+    if (!meetsRequirements) {
+      return { type: 'complete', newState, events };
+    }
+    
+    // Continue to next step automatically
+    return {
+      type: 'continue',
+      newState,
+      events,
+      nextState: { step: 'process_action' }
+    };
+  }
+  
+  case 'process_action': {
+    // Do the main work
+    const processedState = doMainWork(newState);
+    
+    // Continue to final step
+    return {
+      type: 'continue', 
+      newState: processedState,
+      events: [...events, ...workEvents],
+      nextState: { step: 'finalize' }
+    };
+  }
+  
+  case 'finalize': {
+    // Final cleanup
+    return { type: 'complete', newState, events };
+  }
+}
+```
+
+**When to use 'continue' vs 'complete'**:
+- Use `'continue'` when you need to proceed to another step automatically
+- Use `'complete'` when the effect is entirely finished
+- Use `'need_choice'` when you need player input before proceeding
+
+**Engine Behavior**:
+- `'continue'` results set `nextPhase: 'AwaitingAction'` but continue effect execution
+- The engine automatically calls the effect function again with the `nextState`
+- Tests see the final accumulated events from all steps
+
+### 4. Avoid Unnecessary Step Branches
 Combine simple logic into single steps. Only create new steps when you truly need to pause execution.
 
 ```typescript
@@ -427,7 +535,7 @@ case 'execute_effect': {
 }
 ```
 
-### 3. Use Helper Functions Extensively
+### 5. Use Helper Functions Extensively
 Break complex operations into small, testable helper functions.
 
 ```typescript
@@ -449,10 +557,10 @@ case 'check_condition': {
 }
 ```
 
-### 4. Keep Effects Brief
+### 6. Keep Effects Brief
 Target 20-40 lines per card effect. If longer, break into helper functions.
 
-### 5. Use Descriptive Step Names
+### 7. Use Descriptive Step Names
 Step names should clearly indicate what the step does.
 
 ```typescript
@@ -463,7 +571,7 @@ step: 'check_sharing_eligibility' | 'offer_optional_splay' | 'execute_demand'
 step: 'step1' | 'step2' | 'processing' | 'handle_stuff'
 ```
 
-### 6. Handle Edge Cases Early
+### 8. Handle Edge Cases Early
 Validate conditions and handle edge cases at the beginning of each step.
 
 ```typescript

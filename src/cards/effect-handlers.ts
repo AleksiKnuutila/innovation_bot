@@ -6,7 +6,7 @@ import type {
 } from '../types/dogma.js';
 import type { PlayerId, CardId, GameData } from '../types/index.js';
 import type { GameEvent } from '../types/events.js';
-import type { YesNoChoice, SelectCardsChoice } from '../types/choices.js';
+import type { YesNoChoice, SelectCardsChoice, ChoiceAnswer, SelectPileAnswer } from '../types/choices.js';
 import { emitEvent } from '../engine/events.js';
 import { 
   drawCard, 
@@ -21,7 +21,9 @@ import {
   // New composite primitives
   drawAndScore,
   drawAndMeld,
-  returnCard
+  returnCard,
+  splayColor,
+  drawAndTuck
 } from '../engine/state-manipulation.js';
 import { CARDS } from './database.js';
 
@@ -2200,11 +2202,21 @@ export function philosophyEffect(
       const player = gameData.players[activatingPlayer]!;
       
       if (player.colors.length === 0) {
-        // No colors to splay, skip to score choice
+        // No colors to splay, go directly to score choice
         return {
-          type: 'continue',
+          type: 'need_choice',
           newState: gameData,
           events: [],
+          choice: {
+            id: 'philosophy_score_choice',
+            playerId: activatingPlayer,
+            source: 'philosophy_card_effect',
+            type: 'select_cards',
+            prompt: 'Score a card from your hand',
+            from: { playerId: activatingPlayer, zone: 'hand' },
+            minCards: 1,
+            maxCards: 1
+          },
           nextState: { step: 'waiting_score_choice' }
         };
       }
@@ -2449,7 +2461,7 @@ export const opticsEffect = createSimpleEffect((context: DogmaContext) => {
   let newState = gameData;
   const events: GameEvent[] = [];
   
-  // Draw and meld a 3
+  // Draw and meld a 3 (this will generate both draw and meld events)
   newState = drawAndMeld(newState, activatingPlayer, 3, 1, events);
   
   // Get the melded card to check for crown
@@ -2494,9 +2506,44 @@ export const translationEffect = createSimpleEffect((context: DogmaContext) => {
   let newState = gameData;
   const events: GameEvent[] = [];
   
-  // Meld all score cards
+  // Move all score cards to board (this is equivalent to melding them)
   for (const cardId of player.scores) {
-    newState = meldCard(newState, activatingPlayer, cardId, events);
+    // Remove from score pile and add to board
+    newState = {
+      ...newState,
+      players: {
+        ...newState.players,
+        [activatingPlayer]: {
+          ...newState.players[activatingPlayer]!,
+          scores: newState.players[activatingPlayer]!.scores.filter(id => id !== cardId)
+        }
+      }
+    };
+    
+    // Add to board (find the appropriate color stack)
+    const card = CARDS.cardsById.get(cardId);
+    if (card) {
+      const colorIndex = newState.players[activatingPlayer]!.colors.findIndex(stack => stack.color === card.color);
+      if (colorIndex >= 0) {
+        // Add to existing color stack
+        newState.players[activatingPlayer]!.colors[colorIndex]!.cards.push(cardId);
+      } else {
+        // Create new color stack
+        newState.players[activatingPlayer]!.colors.push({
+          color: card.color,
+          cards: [cardId]
+        });
+      }
+      
+      // Emit meld event
+      const meldEvent = emitEvent(newState, 'melded', {
+        playerId: activatingPlayer,
+        cardId,
+        color: card.color,
+        fromHand: false
+      });
+      events.push(meldEvent);
+    }
   }
   
   // Check if each top card has a crown
@@ -2691,47 +2738,52 @@ export function compassEffect(
 // Export all effect functions for registration
 // ============================================================================
 
-export const CARD_EFFECT_HANDLERS = {
-  // Age 1 Cards (IDs 1-15)
-  1: agricultureEffect,      // Agriculture
-  2: archeryEffect,          // Archery
-  3: cityStatesEffect,       // City States
-  4: clothingEffect,         // Clothing
-  5: codeOfLawsEffect,       // Code of Laws
-  6: domesticationEffect,    // Domestication
-  7: masonryEffect,          // Masonry
-  8: metalworkingEffect,     // Metalworking
-  9: mysticismEffect,        // Mysticism
-  10: oarsEffect,            // Oars
-  11: potteryEffect,         // Pottery
-  12: sailingEffect,         // Sailing
-  13: theWheelEffect,        // The Wheel
-  14: toolsEffect,           // Tools
-  15: writingEffect,         // Writing
-  
-  // Age 2 Cards (IDs 16-25)
-  16: calendarEffect,        // Calendar
-  17: canalBuildingEffect,   // Canal Building
-  18: constructionEffect,    // Construction
-  19: currencyEffect,        // Currency
-  20: fermentingEffect,      // Fermenting
-  21: mapmakingEffect,       // Mapmaking
-  22: mathematicsEffect,     // Mathematics
-  23: monotheismEffect,      // Monotheism
-  24: philosophyEffect,      // Philosophy
-  25: roadBuildingEffect,    // Road Building
-  
-  // Age 3 Cards (IDs 26-35)
-  26: alchemyEffect,          // Alchemy
-  27: opticsEffect,            // Optics
-  28: translationEffect,       // Translation
-  29: compassEffect,           // Compass
-  30: educationEffect,         // Education
-  31: engineeringEffect,       // Engineering
-  32: feudalismEffect,        // Feudalism
-  33: machineryEffect,        // Machinery
-  34: medicineEffect,         // Medicine
-};
+// Note: CARD_EFFECT_HANDLERS has been replaced with EFFECT_BY_NAME in effect-registry.ts
+// This provides a more maintainable name-based mapping instead of ID-based mapping.
+// The name-based approach eliminates the brittleness of ID-based mapping and makes
+// it easier to add/remove effects without worrying about ID conflicts.
+
+// export const CARD_EFFECT_HANDLERS = {
+//   // Age 1 Cards (IDs 1-15)
+//   1: agricultureEffect,      // Agriculture
+//   2: archeryEffect,          // Archery
+//   3: cityStatesEffect,       // City States
+//   4: clothingEffect,         // Clothing
+//   5: codeOfLawsEffect,       // Code of Laws
+//   6: domesticationEffect,    // Domestication
+//   7: masonryEffect,          // Masonry
+//   8: metalworkingEffect,     // Metalworking
+//   9: mysticismEffect,        // Mysticism
+//   10: oarsEffect,            // Oars
+//   11: potteryEffect,         // Pottery
+//   12: sailingEffect,         // Sailing
+//   13: theWheelEffect,        // The Wheel
+//   14: toolsEffect,           // Tools
+//   15: writingEffect,         // Writing
+//   
+//   // Age 2 Cards (IDs 16-25)
+//   16: calendarEffect,        // Calendar
+//   17: canalBuildingEffect,   // Canal Building
+//   18: constructionEffect,    // Construction
+//   19: currencyEffect,        // Currency
+//   20: fermentingEffect,      // Fermenting
+//   21: mapmakingEffect,       // Mapmaking
+//   22: mathematicsEffect,     // Mathematics
+//   23: monotheismEffect,      // Monotheism
+//   24: philosophyEffect,      // Philosophy
+//   25: roadBuildingEffect,    // Road Building
+//   
+//   // Age 3 Cards (IDs 26-35)
+//   26: alchemyEffect,          // Alchemy
+//   27: opticsEffect,            // Optics
+//   28: translationEffect,       // Translation
+//   29: compassEffect,           // Compass
+//   30: educationEffect,         // Education
+//   31: engineeringEffect,       // Engineering
+//   32: feudalismEffect,        // Feudalism
+//   33: machineryEffect,        // Machinery
+//   34: medicineEffect,         // Medicine
+// };
 
 // Education: "You may return the highest card from your score pile. If you do, draw a card of value two higher than the highest card remaining in your score pile."
 interface EducationState {
@@ -2981,10 +3033,11 @@ export function engineeringEffect(
           id: 'engineering_splay_choice',
           playerId: activatingPlayer,
           source: 'engineering_card_effect',
-          type: 'yes_no',
+          type: 'select_cards',
           prompt: 'You may splay your red cards left',
-          yesText: 'Splay red cards left',
-          noText: 'Do not splay red cards'
+          from: { playerId: activatingPlayer, zone: 'board' },
+          minCards: 0,
+          maxCards: 1
         },
         nextState: { 
           step: 'execute_splay',
@@ -3022,7 +3075,13 @@ export function feudalismEffect(
       const handCards = gameData.players[targetPlayer]!.hands;
       const castleHandCards = handCards.filter(cardId => {
         const card = CARDS.cardsById.get(cardId);
-        return card && hasIcon(gameData, targetPlayer, 'Castle');
+        if (!card) return false;
+        
+        // Check if the card has a castle icon in any visible position
+        return card.positions.top === 'Castle' || 
+               card.positions.left === 'Castle' || 
+               card.positions.middle === 'Castle' || 
+               card.positions.right === 'Castle';
       });
       
       if (castleHandCards.length === 0) {
@@ -3522,4 +3581,904 @@ export function medicineEffect(
       throw new Error(`Unknown step: ${(state as any).step}`);
   }
 }
+
+// ============================================================================
+// Age 4 Card Effects
+// ============================================================================
+
+// ============================================================================
+// Simple Card: Experimentation (ID 39) - Draw and meld a 5
+// ============================================================================
+
+export const experimentationEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw and meld a 5 (will fall back to age 6, 7, etc. if age 5 is empty)
+  newState = drawAndMeld(newState, activatingPlayer, 5, 1, events);
+  
+  return [newState, events];
+});
+
+// ============================================================================
+// Simple Card: Colonialism (ID 37) - Draw and tuck a 3, repeating if Crown
+// ============================================================================
+
+export const colonialismEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  
+  // For now, just draw and tuck once (repeat logic needs more complex implementation)
+  // TODO: Implement proper repeat logic when drawn card has Crown
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  newState = drawAndTuck(newState, activatingPlayer, 3, 1, events);
+  
+  return [newState, events];
+});
+
+// ============================================================================
+// Complex Card: Anatomy (ID 36) - Demand return from score, then return equal value from board
+// ============================================================================
+
+interface AnatomyState {
+  step: 'demand_return_score' | 'waiting_score_choice' | 'demand_return_board' | 'waiting_board_choice';
+  returnedScoreCardId?: CardId;
+  returnedScoreCardValue?: number;
+}
+
+export function anatomyEffect(
+  context: DogmaContext,
+  state: AnatomyState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'demand_return_score': {
+      // Find opponents with fewer Leaf icons
+      const activatingPlayerLeafs = countIcons(gameData, activatingPlayer, 'Leaf');
+      const affectedPlayers: PlayerId[] = [];
+      
+      for (let playerId = 0; playerId < 2; playerId++) {
+        const typedPlayerId = playerId as PlayerId;
+        if (typedPlayerId !== activatingPlayer) {
+          const playerLeafs = countIcons(gameData, typedPlayerId, 'Leaf');
+          if (playerLeafs < activatingPlayerLeafs) {
+            affectedPlayers.push(typedPlayerId);
+          }
+        }
+      }
+      
+      if (affectedPlayers.length === 0) {
+        // No one affected by demand - complete immediately
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: []
+        };
+      }
+      
+      // Start with first affected player
+      const targetPlayer = affectedPlayers[0];
+      if (targetPlayer === undefined) {
+        throw new Error('No affected players found');
+      }
+      
+      const hasScoreCards = gameData.players[targetPlayer]!.scores.length > 0;
+      
+      if (!hasScoreCards) {
+        // Skip to next player or complete
+        if (affectedPlayers.length === 1) {
+          return {
+            type: 'complete',
+            newState: gameData,
+            events: []
+          };
+        }
+        
+        return {
+          type: 'continue',
+          newState: gameData,
+          events: [],
+          nextState: {
+            ...state,
+            step: 'demand_return_score'
+          }
+        };
+      }
+      
+      // Request choice from target player
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: `anatomy_score_${targetPlayer}`,
+          type: 'select_cards',
+          playerId: targetPlayer,
+          prompt: 'Select a card from your score pile to return',
+          source: 'anatomy_card_effect',
+          from: { playerId: targetPlayer, zone: 'score' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: {
+          step: 'waiting_score_choice',
+          returnedScoreCardId: undefined,
+          returnedScoreCardValue: undefined
+        }
+      };
+    }
+    
+    case 'waiting_score_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+        throw new Error('Expected card selection');
+      }
+      
+      const selectedCards = (choiceAnswer as any).selectedCards;
+      if (selectedCards.length === 0) {
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: []
+        };
+      }
+      
+      const returnedScoreCardId = selectedCards[0];
+      const returnedScoreCard = CARDS.cardsById.get(returnedScoreCardId);
+      const returnedScoreCardValue = returnedScoreCard?.age || 0;
+      
+      // Return the card from score pile
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      if (!returnedScoreCard) {
+        throw new Error('Invalid card ID');
+      }
+      
+      newState = returnCard(newState, choiceAnswer.playerId, returnedScoreCardId, returnedScoreCard.age, events);
+      
+      // Now demand return of equal value card from board
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `anatomy_board_${choiceAnswer.playerId}`,
+          type: 'select_cards',
+          playerId: choiceAnswer.playerId,
+          prompt: `Select a card of age ${returnedScoreCardValue} from your board to return`,
+          source: 'anatomy_card_effect',
+          from: { playerId: choiceAnswer.playerId, zone: 'board' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: {
+          step: 'waiting_board_choice',
+          returnedScoreCardId,
+          returnedScoreCardValue
+        }
+      };
+    }
+    
+    case 'waiting_board_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+        throw new Error('Expected card selection');
+      }
+      
+      const selectedCards = (choiceAnswer as any).selectedCards;
+      if (selectedCards.length === 0) {
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: []
+        };
+      }
+      
+      const returnedBoardCardId = selectedCards[0];
+      const returnedBoardCard = CARDS.cardsById.get(returnedBoardCardId);
+      if (!returnedBoardCard) {
+        throw new Error('Invalid card ID');
+      }
+      
+      // Return the card from board
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      newState = returnCard(newState, choiceAnswer.playerId, returnedBoardCardId, returnedBoardCard.age, events);
+      
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// ============================================================================
+// Complex Card: Enterprise (ID 38) - Demand transfer non-purple Crown, then draw and meld 4
+// ============================================================================
+
+interface EnterpriseState {
+  step: 'demand_transfer' | 'waiting_transfer_choice' | 'draw_and_meld';
+  transferredCardId?: CardId;
+}
+
+export function enterpriseEffect(
+  context: DogmaContext,
+  state: EnterpriseState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer, affectedPlayers } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  if (state.step === 'demand_transfer') {
+    const targetPlayer = affectedPlayers[0];
+    
+    if (!targetPlayer) {
+      // No affected players, complete immediately
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+    
+    // Check if they have any non-purple Crown cards on their board
+    const validCards = gameData.players[targetPlayer]!.colors.filter((colorStack) => {
+      if (colorStack.cards.length === 0) return false;
+      const topCard = CARDS.cardsById.get(colorStack.cards[colorStack.cards.length - 1]!);
+      return topCard && topCard.color !== 'Purple' && hasIcon(gameData, targetPlayer, 'Crown');
+    });
+    
+    if (validCards.length === 0) {
+      // No valid cards to transfer, complete immediately  
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+
+    return {
+      type: 'need_choice',
+      newState,
+      events,
+      choice: {
+        id: `enterprise_transfer_${targetPlayer}`,
+        type: 'select_cards',
+        playerId: targetPlayer,
+        prompt: 'Select a non-purple Crown card from your board to transfer',
+        source: 'enterprise_card_effect',
+        from: { playerId: targetPlayer, zone: 'board' },
+        minCards: 1,
+        maxCards: 1
+      },
+      nextState: {
+        ...state,
+        step: 'waiting_transfer_choice'
+      }
+    };
+  }
+
+  if (state.step === 'waiting_transfer_choice') {
+    if (choiceAnswer?.type === 'select_cards' && choiceAnswer.selectedCards.length > 0) {
+      const transferredCardId = choiceAnswer.selectedCards[0];
+      const targetPlayer = affectedPlayers[0]!;
+      
+      // Transfer the card to activating player's score pile
+      newState = transferCard(
+        newState, 
+        targetPlayer,
+        activatingPlayer,
+        transferredCardId, 
+        'board',
+        'score',
+        events
+      );
+
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: {
+          ...state,
+          step: 'draw_and_meld',
+          transferredCardId
+        }
+      };
+    }
+  }
+
+  if (state.step === 'draw_and_meld') {
+    const { transferredCardId } = state;
+    
+    if (!transferredCardId) {
+      // No card was transferred, complete without drawing
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+    
+    // Since a card was transferred, draw and meld a 4
+    newState = drawCard(newState, activatingPlayer, 4, events);
+    // Get the last drawn card from hand to meld it
+    const player = newState.players[activatingPlayer]!;
+    const drawnCardId = player.hands[player.hands.length - 1];
+    if (drawnCardId !== undefined) {
+      newState = meldCard(newState, activatingPlayer, drawnCardId, events);
+    }
+
+    return {
+      type: 'complete',
+      newState,
+      events
+    };
+  }
+
+  return {
+    type: 'complete',
+    newState,
+    events
+  };
+}
+
+// ============================================================================
+// Complex Card: Gunpowder (ID 40) - Demand transfer Castle, then draw and score 2 if transferred
+// ============================================================================
+
+interface GunpowderState {
+  step: 'demand_transfer' | 'waiting_transfer_choice' | 'check_transfer_and_draw';
+  transferredCardId?: CardId;
+}
+
+export function gunpowderEffect(
+  context: DogmaContext,
+  state: GunpowderState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer, affectedPlayers } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  if (state.step === 'demand_transfer') {
+    const targetPlayer = affectedPlayers[0];
+    
+    if (!targetPlayer) {
+      // No affected players, complete immediately
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+    
+    // Check if they have any Castle cards on their board
+    const hasCastleCards = gameData.players[targetPlayer]!.colors.some((colorStack) => {
+      const topCard = CARDS.cardsById.get(colorStack.cards[colorStack.cards.length - 1]);
+      return topCard && hasIcon(gameData, targetPlayer, 'Castle');
+    });
+    
+    if (!hasCastleCards) {
+      // No Castle cards to transfer, complete immediately
+      return {
+        type: 'complete',
+        newState,
+        events
+      };
+    }
+
+    return {
+      type: 'need_choice',
+      newState,
+      events,
+      choice: {
+        id: `gunpowder_transfer_${targetPlayer}`,
+        type: 'select_cards',
+        playerId: targetPlayer,
+        prompt: 'Select a Castle card from your board to transfer to opponent\'s score pile',
+        source: 'gunpowder_card_effect',
+        from: { playerId: targetPlayer, zone: 'board' },
+        minCards: 1,
+        maxCards: 1
+      },
+      nextState: {
+        ...state,
+        step: 'waiting_transfer_choice'
+      }
+    };
+  }
+
+  if (state.step === 'waiting_transfer_choice') {
+    if (choiceAnswer?.type === 'select_cards' && choiceAnswer.selectedCards.length > 0) {
+      const transferredCardId = choiceAnswer.selectedCards[0];
+      const targetPlayer = affectedPlayers[0]!;
+      
+      // Transfer the card to activating player's score pile
+      newState = transferCard(
+        newState, 
+        targetPlayer,
+        activatingPlayer,
+        transferredCardId, 
+        'board',
+        'score',
+        events
+      );
+
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: {
+          ...state,
+          step: 'check_transfer_and_draw',
+          transferredCardId
+        }
+      };
+    }
+  }
+
+  if (state.step === 'check_transfer_and_draw') {
+    if (state.transferredCardId) {
+      // Since a card was transferred, draw and score a 2
+      newState = drawCard(newState, activatingPlayer, 2, events);
+      // Get the last drawn card from hand to score it
+      const player = newState.players[activatingPlayer]!;
+      const drawnCardId = player.hands[player.hands.length - 1];
+      if (drawnCardId !== undefined) {
+        newState = scoreCard(newState, activatingPlayer, drawnCardId, events);
+      }
+    }
+    
+    return {
+      type: 'complete',
+      newState,
+      events
+    };
+  }
+
+  return {
+    type: 'complete',
+    newState,
+    events
+  };
+}
+
+// ============================================================================
+// Complex Card: Invention (ID 41) - Optional splay right (if left), then draw+score 4
+// ============================================================================
+
+interface InventionState {
+  step: 'check_splay_options' | 'waiting_splay_choice' | 'draw_and_score';
+  splayedColor?: string;
+}
+
+export function inventionEffect(
+  context: DogmaContext,
+  state: InventionState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_splay_options': {
+      // Find colors currently splayed left
+      const leftSplayedColors = gameData.players[activatingPlayer]!.colors
+        .filter(colorStack => colorStack.splayDirection === 'left')
+        .map(colorStack => colorStack.color);
+
+      if (leftSplayedColors.length === 0) {
+        // No colors splayed left, complete immediately
+        return { type: 'complete', newState, events };
+      }
+
+      // Offer choice to splay one of these colors right
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `invention_splay_${activatingPlayer}`,
+          type: 'select_pile',
+          playerId: activatingPlayer,
+          prompt: 'Select a color currently splayed left to splay right instead',
+          source: 'invention_card_effect',
+          availableColors: leftSplayedColors,
+          operation: 'splay_right'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_splay_choice'
+        }
+      };
+    }
+
+    case 'waiting_splay_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_pile') {
+        throw new Error('Expected pile selection');
+      }
+
+      const pileAnswer = choiceAnswer as SelectPileAnswer;
+      const selectedColor = pileAnswer.selectedColor;
+      
+      // Splay the selected color right
+      newState = splayColor(newState, activatingPlayer, selectedColor, 'right', events);
+      
+      // Since a color was splayed, draw and score a 4
+      newState = drawAndScore(newState, activatingPlayer, 4, 1, events);
+      
+      // TODO: Check for Wonder achievement (if 5 colors splayed in any direction)
+      // This would require checking all color stacks for splay directions
+      
+      return { type: 'complete', newState, events };
+    }
+
+    case 'draw_and_score': {
+      // This step is no longer needed since we handle everything in waiting_splay_choice
+      throw new Error('Unexpected step: draw_and_score should not be reached');
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// ============================================================================
+// Simple Card: Navigation (ID 42) - Demand transfer 2 or 3 from score
+// ============================================================================
+
+interface NavigationState {
+  step: 'demand_transfer' | 'waiting_transfer_choice';
+  targetPlayer?: PlayerId;
+  validCards?: CardId[];
+}
+
+export function navigationEffect(
+  context: DogmaContext,
+  state: NavigationState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer, affectedPlayers } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'demand_transfer': {
+      // Find target player (should be the opponent with fewer Crown icons)
+      const potentialTargets = affectedPlayers.filter(pid => pid !== activatingPlayer);
+      const targetPlayer = potentialTargets[0];
+      
+      if (!targetPlayer) {
+        // No potential target players, complete immediately
+        return { type: 'complete', newState, events };
+      }
+      
+      // Check if target player has fewer Crown icons (demand condition)
+      const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
+      const targetPlayerCrowns = countIcons(gameData, targetPlayer, 'Crown');
+      
+      if (targetPlayerCrowns >= activatingPlayerCrowns) {
+        // Target player is not vulnerable to demand, complete immediately
+        return { type: 'complete', newState, events };
+      }
+      
+      // Find age 2 or 3 cards in target player's score pile
+      const validCards = gameData.players[targetPlayer]!.scores.filter(cardId => {
+        const card = CARDS.cardsById.get(cardId);
+        return card && (card.age === 2 || card.age === 3);
+      });
+      
+      if (validCards.length === 0) {
+        // No valid cards to transfer, complete immediately  
+        return { type: 'complete', newState, events };
+      }
+
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `navigation_transfer_${targetPlayer}`,
+          type: 'select_cards',
+          playerId: targetPlayer,
+          prompt: 'Select an age 2 or 3 card from your score pile to transfer',
+          source: 'navigation_card_effect',
+          from: { zone: 'score', playerId: targetPlayer },
+          minCards: 1,
+          maxCards: 1,
+          filter: { ages: [2, 3] }
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_transfer_choice',
+          targetPlayer,
+          validCards
+        }
+      };
+    }
+
+    case 'waiting_transfer_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        // No valid selection, complete
+        return { type: 'complete', newState, events };
+      }
+
+      const transferredCardId = choiceAnswer.selectedCards[0]!;
+      const targetPlayer = state.targetPlayer!;
+      
+      // Transfer the card from target's score to activating player's score
+      newState = transferCard(
+        newState, 
+        targetPlayer,
+        activatingPlayer,
+        transferredCardId, 
+        'score',
+        'score',
+        events
+      );
+
+      return { type: 'complete', newState, events };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// ============================================================================
+// Simple Card: Perspective (ID 43) - Optional return hand card, score based on Lightbulb icons
+// ============================================================================
+
+interface PerspectiveState {
+  step: 'check_hand' | 'waiting_return_choice' | 'score_cards';
+}
+
+export function perspectiveEffect(
+  context: DogmaContext,
+  state: PerspectiveState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_hand': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.hands.length === 0) {
+        // No cards in hand, complete immediately
+        return { type: 'complete', newState, events };
+      }
+
+      // Offer optional choice to return a card from hand
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `perspective_return_${activatingPlayer}`,
+          type: 'select_cards',
+          playerId: activatingPlayer,
+          prompt: 'You may return a card from your hand. If you do, score cards based on Lightbulb icons.',
+          source: 'perspective_card_effect',
+          from: { zone: 'hand', playerId: activatingPlayer },
+          minCards: 0,
+          maxCards: 1
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_return_choice'
+        }
+      };
+    }
+
+    case 'waiting_return_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+        // No choice made, complete
+        return { type: 'complete', newState, events };
+      }
+
+      if (choiceAnswer.selectedCards.length === 0) {
+        // Player chose not to return a card, complete
+        return { type: 'complete', newState, events };
+      }
+
+      const returnedCardId = choiceAnswer.selectedCards[0]!;
+      const returnedCard = CARDS.cardsById.get(returnedCardId);
+      
+      if (!returnedCard) {
+        throw new Error(`Card ${returnedCardId} not found in database`);
+      }
+
+      // Return the card to supply
+      newState = returnCard(newState, activatingPlayer, returnedCardId, returnedCard.age, events);
+
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: {
+          ...state,
+          step: 'score_cards'
+        }
+      };
+    }
+
+    case 'score_cards': {
+      // Count Lightbulb icons on the board
+      const lightbulbCount = countIcons(gameData, activatingPlayer, 'Lightbulb');
+      const cardsToScore = Math.floor(lightbulbCount / 2);
+      
+      const player = newState.players[activatingPlayer]!;
+      
+      // Score cards from hand (up to the calculated amount)
+      for (let i = 0; i < cardsToScore && player.hands.length > 0; i++) {
+        const cardToScore = player.hands[player.hands.length - 1]!; // Score from top of hand
+        newState = scoreCard(newState, activatingPlayer, cardToScore, events);
+      }
+
+      return { type: 'complete', newState, events };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// ============================================================================
+// Simple Card: Printing Press (ID 44) - Optional return score card, optional splay blue
+// ============================================================================
+
+export const printingPressEffect = createSimpleEffect((context: DogmaContext) => {
+  // Effect not implemented yet - should fail
+  throw new Error('Printing Press effect not implemented yet');
+});
+
+// ============================================================================
+// Simple Card: Reformation (ID 45) - Optional tuck based on Leaf icons, optional splay
+// ============================================================================
+
+export const reformationEffect = createSimpleEffect((context: DogmaContext) => {
+  // Effect not implemented yet - should fail
+  throw new Error('Reformation effect not implemented yet');
+});
+
+// ============================================================================
+// Age 5 Cards
+// ============================================================================
+
+// Simple Card: Coal (ID 49) - Draw and tuck a 5
+export const coalEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw and tuck a 5
+  newState = drawAndTuck(newState, activatingPlayer, 5, 1, events);
+  
+  // TODO: Add optional splay red right
+  // TODO: Add optional score top card and card beneath it
+  
+  return [newState, events];
+});
+
+// Simple Card: Steam Engine (ID 55) - Draw and tuck two 4s, then score bottom yellow card
+export const steamEngineEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw and tuck two 4s
+  newState = drawAndTuck(newState, activatingPlayer, 4, 2, events);
+  
+  // Score bottom yellow card if player has yellow cards
+  const yellowColorStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Yellow' && stack.cards.length > 0
+  );
+  
+  if (yellowColorStack) {
+    const bottomYellowCard = yellowColorStack.cards[0]; // Bottom card is first in array
+    // Remove from board
+    yellowColorStack.cards.shift();
+    if (yellowColorStack.cards.length === 0) {
+      // Remove empty color stack
+      const stackIndex = newState.players[activatingPlayer]!.colors.indexOf(yellowColorStack);
+      newState.players[activatingPlayer]!.colors.splice(stackIndex, 1);
+    }
+    // Add to score pile
+    newState.players[activatingPlayer]!.scores.push(bottomYellowCard);
+    
+    events.push({
+      id: Math.random(), // TODO: Better ID generation
+      type: 'scored',
+      playerId: activatingPlayer,
+      cardId: bottomYellowCard,
+      fromZone: 'board',
+      timestamp: Date.now()
+    });
+  }
+  
+  return [newState, events];
+});
+
+// ============================================================================
+// Simple Card: Physics (ID 51) - Draw three 6s, return all if 2+ same color
+// ============================================================================
+
+export const physicsEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  const drawnCards: CardId[] = [];
+  
+  // Draw three 6s and reveal them
+  for (let i = 0; i < 3; i++) {
+    newState = drawCard(newState, activatingPlayer, 6, events);
+    const drawnCardId = newState.players[activatingPlayer]!.hands[newState.players[activatingPlayer]!.hands.length - 1]!;
+    drawnCards.push(drawnCardId);
+    
+    // Reveal the drawn card
+    newState = revealCard(newState, activatingPlayer, drawnCardId, events);
+  }
+  
+  // Check if two or more drawn cards are of the same color
+  const colors = drawnCards.map(cardId => {
+    const card = CARDS.cardsById.get(cardId);
+    return card?.color;
+  }).filter(color => color !== undefined);
+  
+  const colorCounts = new Map<string, number>();
+  for (const color of colors) {
+    colorCounts.set(color!, (colorCounts.get(color!) || 0) + 1);
+  }
+  
+  const hasDuplicateColors = Array.from(colorCounts.values()).some(count => count >= 2);
+  
+  if (hasDuplicateColors) {
+    // Return all drawn cards and all cards in hand
+    const player = newState.players[activatingPlayer]!;
+    
+    // Return drawn cards first
+    for (const cardId of drawnCards) {
+      const card = CARDS.cardsById.get(cardId);
+      if (card) {
+        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+      }
+    }
+    
+    // Return all remaining cards in hand
+    const handCards = [...player.hands];
+    for (const cardId of handCards) {
+      const card = CARDS.cardsById.get(cardId);
+      if (card) {
+        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+      }
+    }
+  }
+  // Otherwise, keep the drawn cards (they're already in hand)
+  
+  return [newState, events];
+});
 

@@ -14,23 +14,10 @@ import type { GameEvent } from '../types/events.js';
 import type { Choice } from '../types/choices.js';
 import { deepClone } from './utils.js';
 import { emitEvent } from './events.js';
-import { CARD_EFFECT_HANDLERS } from '../cards/effect-handlers.js';
+import { getCardEffectByName } from '../cards/effect-registry.js';
 import { CARDS } from '../cards/database.js';
 import { countIcons } from './state-manipulation.js';
 import { autoClaimSpecialAchievements } from './achievements.js';
-
-// Global effect registry - maps numeric card IDs to effect functions
-const effectRegistry: Record<number, CardEffectFunction> = { ...CARD_EFFECT_HANDLERS };
-
-// Register a card effect function by numeric ID
-export function registerCardEffect(cardId: number, effectFunction: CardEffectFunction): void {
-  effectRegistry[cardId] = effectFunction;
-}
-
-// Get a card effect function by numeric ID
-export function getCardEffectFunction(cardId: number): CardEffectFunction | undefined {
-  return effectRegistry[cardId];
-}
 
 // Create simplified dogma context
 export function createDogmaContext(
@@ -76,10 +63,10 @@ export function executeDogmaEffect(
     throw new Error(`Unknown card ID: ${context.cardId}`);
   }
   
-  // Use the card ID directly - no more title-to-ID conversion
-  const effectFunction = effectRegistry[context.cardId];
+  // Use the card name to look up the effect function
+  const effectFunction = getCardEffectByName(card.title);
   if (!effectFunction) {
-    throw new Error(`No effect handler for card ID: ${context.cardId}`);
+    throw new Error(`No effect handler for card: ${card.title}`);
   }
   
   // Check if this effect is already active
@@ -88,9 +75,17 @@ export function executeDogmaEffect(
     // Resume existing effect
     return effectFunction(context, currentEffect.state);
   } else {
-    // Start new effect with initial state
-    const initialState = getInitialState(context.cardId);
-    return effectFunction(context, initialState);
+    // Check if this is a simplified effect
+    const simplifiedEffects = ['Domestication', 'Sailing', 'The Wheel', 'Writing', 'Calendar', 'Canal Building', 'Fermenting', 'Paper', 'Translation'];
+    
+    if (simplifiedEffects.includes(card.title)) {
+      // Simplified effects don't need initial state
+      return effectFunction(context, {});
+    } else {
+      // State-based effects need initial state
+      const initialState = getInitialState(card.title);
+      return effectFunction(context, initialState);
+    }
   }
 }
 
@@ -212,7 +207,7 @@ export function resumeDogmaExecution(
   }
   
   // Use the card ID directly - no more title-to-ID conversion
-  const effectFunction = effectRegistry[currentEffect.cardId];
+  const effectFunction = getCardEffectByName(card.title);
   if (!effectFunction) {
     throw new Error(`No effect handler for card ID: ${currentEffect.cardId}`);
   }
@@ -270,57 +265,94 @@ export function resumeDogmaExecution(
 }
 
 // Helper function to get initial state for a card
-function getInitialState(cardId: number): any {
-  // Simplified effects don't need initial states
-  const simplifiedEffects = [6, 12, 13, 15, 16, 17, 20]; // Domestication, Sailing, The Wheel, Writing, Calendar, Canal Building, Fermenting
-  
-  if (simplifiedEffects.includes(cardId)) {
-    return {}; // Simplified effects don't use state
-  }
-  
-  switch (cardId) {
-    case 1: // Agriculture
+function getInitialState(cardName: string): any {
+  switch (cardName) {
+    case 'Agriculture':
       return { step: 'check_hand' };
-    case 2: // Archery
+    case 'Archery':
       return { step: 'execute_demand' };
-    case 3: // City States
+    case 'City States':
       return { step: 'check_condition' };
-    case 4: // Clothing
+    case 'Clothing':
       return { step: 'waiting_meld_choice' };
-    case 5: // Code of Laws
+    case 'Code of Laws':
       return { step: 'check_condition' };
-    case 7: // Masonry
+    case 'Masonry':
       return { step: 'waiting_meld_choice' };
-    case 8: // Metalworking
+    case 'Metalworking':
       return { step: 'draw_reveal' };
-    case 9: // Mysticism
+    case 'Mysticism':
       return { step: 'draw_first' };
-    case 10: // Oars
+    case 'Oars':
       return { 
         step: 'execute_demand', 
         affectedPlayers: [], 
         currentPlayerIndex: 0 
       };
-    case 11: // Pottery
+    case 'Pottery':
       return { step: 'waiting_return_choice' };
-    case 14: // Tools
+    case 'Tools':
       return { step: 'check_hand' };
       
     // Age 2 Cards
-    case 18: // Construction
+    case 'Construction':
       return { step: 'check_condition' };
-    case 19: // Currency
+    case 'Currency':
       return { step: 'waiting_return_choice' };
-    case 21: // Mapmaking
+    case 'Mapmaking':
       return { step: 'check_condition' };
-    case 22: // Mathematics
+    case 'Mathematics':
       return { step: 'waiting_return_choice' };
-    case 23: // Monotheism
+    case 'Monotheism':
       return { step: 'check_condition' };
-    case 24: // Philosophy
+    case 'Philosophy':
       return { step: 'waiting_splay_choice' };
-    case 25: // Road Building
+    case 'Road Building':
       return { step: 'waiting_meld_choice' };
+      
+    // Age 3 Cards
+    case 'Alchemy':
+      return { step: 'start' };
+    case 'Compass':
+      return { step: 'check_condition' }; // Compass needs to check for non-green leaf cards
+    case 'Engineering':
+      return { step: 'check_condition' };
+    case 'Feudalism':
+      return { step: 'check_condition' };
+    case 'Machinery':
+      return { step: 'check_condition' };
+    case 'Medicine':
+      return { step: 'check_condition' };
+    case 'Education':
+      return { step: 'waiting_return_choice' };
+      
+    // Age 4 Cards
+    case 'Anatomy':
+      return { step: 'demand_return_score' };
+    case 'Colonialism':
+      return { step: 'start' }; // Simple effect
+    case 'Enterprise':
+      return { step: 'demand_transfer' };
+    case 'Experimentation':
+      return { step: 'start' }; // Simple effect
+    case 'Gunpowder':
+      return { step: 'demand_transfer' };
+    case 'Invention':
+      return { step: 'check_splay_options' };
+    case 'Navigation':
+      return { step: 'demand_transfer' }; // Demand effect (not placeholder)
+    case 'Perspective':
+      return { step: 'check_hand' }; // Optional choice effect (not placeholder)
+    case 'Printing Press':
+      return { step: 'start' }; // Simple effect (placeholder)
+    case 'Reformation':
+      return { step: 'start' }; // Simple effect (placeholder)
+      
+    // Age 5 Cards
+    case 'Coal':
+      return { step: 'start' }; // Simple effect
+    case 'Steam Engine':
+      return { step: 'start' }; // Simple effect
       
     default:
       return { step: 'start' };
