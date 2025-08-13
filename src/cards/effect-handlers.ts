@@ -2516,6 +2516,177 @@ export const translationEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Compass: "I demand you transfer a top non-green card with a [Leaf] from your board to my board, and then transfer a top card without a [Leaf] from my board to your board."
+interface CompassState {
+  step: 'check_condition' | 'waiting_transfer_choice' | 'waiting_exchange_choice';
+  targetPlayer?: PlayerId;
+  transferredCardId?: CardId;
+}
+
+export function compassEffect(
+  context: DogmaContext,
+  state: CompassState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'check_condition': {
+      // Find the other player
+      const targetPlayer = activatingPlayer === 0 ? 1 : 0;
+      
+      // Check if target player has non-green leaf cards on top of their board
+      const topCards = getTopCards(gameData, targetPlayer);
+      const validLeafCards = topCards.filter(cardId => {
+        const card = CARDS.cardsById.get(cardId);
+        return card && card.color !== 'Green' && hasIcon(gameData, targetPlayer, 'Leaf');
+      });
+      
+      if (validLeafCards.length === 0) {
+        // No valid cards to transfer, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'compass_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      // Offer choice to transfer a non-green leaf top card
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'compass_transfer_choice',
+          playerId: targetPlayer,
+          source: 'compass_card_effect',
+          type: 'select_cards',
+          prompt: 'Transfer a top non-green card with a Leaf from your board to the activating player',
+          from: { playerId: targetPlayer, zone: 'board' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: { 
+          step: 'waiting_transfer_choice',
+          targetPlayer
+        }
+      };
+    }
+    
+    case 'waiting_transfer_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        throw new Error('Card transfer is mandatory for Compass demand');
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      if (targetPlayer === undefined) {
+        throw new Error('Target player not found in state');
+      }
+      
+      const cardToTransfer = choiceAnswer.selectedCards[0];
+      
+      // Transfer the selected card
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      newState = transferCard(newState, targetPlayer, activatingPlayer, cardToTransfer, 'board', 'board', events);
+      
+      // Now offer choice to exchange with a non-leaf card from activating player's board
+      const activatingPlayerTopCards = getTopCards(newState, activatingPlayer);
+      const nonLeafCards = activatingPlayerTopCards.filter(cardId => {
+        const card = CARDS.cardsById.get(cardId);
+        return card && !hasIcon(newState, activatingPlayer, 'Leaf');
+      });
+      
+      if (nonLeafCards.length === 0) {
+        // No non-leaf cards to exchange, complete
+        const dogmaEvent = emitEvent(newState, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'compass_card_effect',
+        });
+        events.push(dogmaEvent);
+        
+        return {
+          type: 'complete',
+          newState,
+          events,
+          effectType: 'demand'
+        };
+      }
+      
+      // Offer choice to exchange with a non-leaf card
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: 'compass_exchange_choice',
+          playerId: activatingPlayer,
+          source: 'compass_card_effect',
+          type: 'select_cards',
+          prompt: 'Transfer a top card without a Leaf from your board to the target player',
+          from: { playerId: activatingPlayer, zone: 'board' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: { 
+          step: 'waiting_exchange_choice',
+          targetPlayer,
+          transferredCardId: cardToTransfer
+        }
+      };
+    }
+    
+    case 'waiting_exchange_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        throw new Error('Card exchange is mandatory for Compass demand');
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      if (targetPlayer === undefined) {
+        throw new Error('Target player not found in state');
+      }
+      
+      const cardToExchange = choiceAnswer.selectedCards[0];
+      
+      // Transfer the selected card to the target player
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      newState = transferCard(newState, activatingPlayer, targetPlayer, cardToExchange, 'board', 'board', events);
+      
+      // Emit dogma event
+      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
+        playerId: activatingPlayer,
+        cardId: context.cardId,
+        dogmaLevel: context.dogmaLevel,
+        source: 'compass_card_effect',
+      });
+      events.push(dogmaEvent);
+      
+      return {
+        type: 'complete',
+        newState,
+        events,
+        effectType: 'demand'
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
 // ============================================================================
 // Export all effect functions for registration
 // ============================================================================
@@ -2554,4 +2725,801 @@ export const CARD_EFFECT_HANDLERS = {
   26: alchemyEffect,          // Alchemy
   27: opticsEffect,            // Optics
   28: translationEffect,       // Translation
+  29: compassEffect,           // Compass
+  30: educationEffect,         // Education
+  31: engineeringEffect,       // Engineering
+  32: feudalismEffect,        // Feudalism
+  33: machineryEffect,        // Machinery
+  34: medicineEffect,         // Medicine
 };
+
+// Education: "You may return the highest card from your score pile. If you do, draw a card of value two higher than the highest card remaining in your score pile."
+interface EducationState {
+  step: 'waiting_return_choice' | 'execute_draw';
+  returnedCardAge?: number;
+}
+
+export function educationEffect(
+  context: DogmaContext,
+  state: EducationState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'waiting_return_choice': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.scores.length === 0) {
+        // No cards in score pile, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'education_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'non-demand'
+        };
+      }
+      
+      // Offer choice to return the highest card from score pile
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'education_return_choice',
+          playerId: activatingPlayer,
+          source: 'education_card_effect',
+          type: 'select_cards',
+          prompt: 'You may return the highest card from your score pile. If you do, draw a card of value two higher than the highest card remaining in your score pile.',
+          from: { playerId: activatingPlayer, zone: 'score' },
+          minCards: 0,
+          maxCards: 1
+        },
+        nextState: { step: 'execute_draw' }
+      };
+    }
+    
+    case 'execute_draw': {
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      if (choiceAnswer && choiceAnswer.type === 'select_cards' && choiceAnswer.selectedCards.length > 0) {
+        // Return the selected card
+        const returnedCardId = choiceAnswer.selectedCards[0];
+        const returnedCard = CARDS.cardsById.get(returnedCardId);
+        if (returnedCard) {
+          newState = returnCard(newState, activatingPlayer, returnedCardId, returnedCard.age, events);
+        }
+        
+        // Find the highest remaining card in score pile
+        const remainingScores = newState.players[activatingPlayer]!.scores;
+        if (remainingScores.length > 0) {
+          let highestAge = 0;
+          for (const cardId of remainingScores) {
+            const card = CARDS.cardsById.get(cardId);
+            if (card && card.age > highestAge) {
+              highestAge = card.age;
+            }
+          }
+          
+          // Draw a card of value two higher
+          const targetAge = highestAge + 2;
+          newState = drawCard(newState, activatingPlayer, targetAge, events);
+        }
+      }
+      
+      // Emit dogma event
+      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
+        playerId: activatingPlayer,
+        cardId: context.cardId,
+        dogmaLevel: context.dogmaLevel,
+        source: 'education_card_effect',
+      });
+      events.push(dogmaEvent);
+      
+      return {
+        type: 'complete',
+        newState,
+        events,
+        effectType: 'non-demand'
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Engineering: "I demand you transfer all top cards with a [Castle] from your board to my score pile!"
+interface EngineeringState {
+  step: 'check_condition' | 'waiting_transfer_choice' | 'execute_splay';
+  targetPlayer?: PlayerId;
+  transferredCards?: CardId[];
+}
+
+export function engineeringEffect(
+  context: DogmaContext,
+  state: EngineeringState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'check_condition': {
+      // Find the other player
+      const targetPlayer = activatingPlayer === 0 ? 1 : 0;
+      
+      // Check if target player has castle cards on top of their board
+      const topCards = getTopCards(gameData, targetPlayer);
+      const castleTopCards = topCards.filter(cardId => {
+        const card = CARDS.cardsById.get(cardId);
+        return card && hasIcon(gameData, targetPlayer, 'Castle');
+      });
+      
+      if (castleTopCards.length === 0) {
+        // No castle cards on top, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'engineering_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      // Offer choice to transfer castle top cards
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'engineering_transfer_choice',
+          playerId: targetPlayer,
+          source: 'engineering_card_effect',
+          type: 'select_cards',
+          prompt: 'Transfer all top cards with a Castle from your board to the activating player\'s score pile',
+          from: { playerId: targetPlayer, zone: 'board' },
+          minCards: 1,
+          maxCards: castleTopCards.length
+        },
+        nextState: { 
+          step: 'waiting_transfer_choice',
+          targetPlayer
+        }
+      };
+    }
+    
+    case 'waiting_transfer_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        throw new Error('Card transfer is mandatory for Engineering demand');
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      if (targetPlayer === undefined) {
+        throw new Error('Target player not found in state');
+      }
+      
+      // Transfer the selected cards to activating player's score pile
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      const transferredCards: CardId[] = [];
+      
+      for (const cardId of choiceAnswer.selectedCards) {
+        // Remove from target player's board
+        newState = {
+          ...newState,
+          players: {
+            ...newState.players,
+            [targetPlayer]: {
+              ...newState.players[targetPlayer]!,
+              colors: newState.players[targetPlayer]!.colors.map(colorStack => ({
+                ...colorStack,
+                cards: colorStack.cards.filter(id => id !== cardId)
+              }))
+            }
+          }
+        };
+        
+        // Add to activating player's score pile
+        newState = {
+          ...newState,
+          players: {
+            ...newState.players,
+            [activatingPlayer]: {
+              ...newState.players[activatingPlayer]!,
+              scores: [...newState.players[activatingPlayer]!.scores, cardId]
+            }
+          }
+        };
+        
+        transferredCards.push(cardId);
+        
+        // Emit transfer event
+        const transferEvent = emitEvent(newState, 'transferred', {
+          playerId: targetPlayer,
+          cardId,
+          fromZone: 'board',
+          toZone: 'score',
+          source: 'engineering_card_effect'
+        });
+        events.push(transferEvent);
+      }
+      
+      // Continue to splay choice
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: { 
+          step: 'execute_splay',
+          targetPlayer,
+          transferredCards
+        }
+      };
+    }
+    
+    case 'execute_splay': {
+      // Offer choice to splay red cards left
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'engineering_splay_choice',
+          playerId: activatingPlayer,
+          source: 'engineering_card_effect',
+          type: 'yes_no',
+          prompt: 'You may splay your red cards left',
+          yesText: 'Splay red cards left',
+          noText: 'Do not splay red cards'
+        },
+        nextState: { 
+          step: 'execute_splay',
+          targetPlayer: state.targetPlayer,
+          transferredCards: state.transferredCards
+        }
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Feudalism: "I demand you transfer a card with a [Castle] from your hand to my hand! If you do, you may splay your yellow or purple cards left."
+interface FeudalismState {
+  step: 'check_condition' | 'waiting_transfer_choice' | 'execute_splay';
+  targetPlayer?: PlayerId;
+  transferredCardId?: CardId;
+}
+
+export function feudalismEffect(
+  context: DogmaContext,
+  state: FeudalismState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'check_condition': {
+      // Find the other player
+      const targetPlayer = activatingPlayer === 0 ? 1 : 0;
+      
+      // Check if target player has castle cards in hand
+      const handCards = gameData.players[targetPlayer]!.hands;
+      const castleHandCards = handCards.filter(cardId => {
+        const card = CARDS.cardsById.get(cardId);
+        return card && hasIcon(gameData, targetPlayer, 'Castle');
+      });
+      
+      if (castleHandCards.length === 0) {
+        // No castle cards in hand, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'feudalism_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      // Offer choice to transfer a castle card from hand
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'feudalism_transfer_choice',
+          playerId: targetPlayer,
+          source: 'feudalism_card_effect',
+          type: 'select_cards',
+          prompt: 'Transfer a card with a Castle from your hand to the activating player',
+          from: { playerId: targetPlayer, zone: 'hand' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: { 
+          step: 'waiting_transfer_choice',
+          targetPlayer
+        }
+      };
+    }
+    
+    case 'waiting_transfer_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        throw new Error('Card transfer is mandatory for Feudalism demand');
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      if (targetPlayer === undefined) {
+        throw new Error('Target player not found in state');
+      }
+      
+      const cardToTransfer = choiceAnswer.selectedCards[0];
+      
+      // Transfer the selected card
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      newState = transferCard(newState, targetPlayer, activatingPlayer, cardToTransfer, 'hand', 'hand', events);
+      
+      // Continue to splay choice
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: { 
+          step: 'execute_splay',
+          targetPlayer,
+          transferredCardId: cardToTransfer
+        }
+      };
+    }
+    
+    case 'execute_splay': {
+      // Offer choice to splay yellow or purple cards left
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'feudalism_splay_choice',
+          playerId: activatingPlayer,
+          source: 'feudalism_card_effect',
+          type: 'yes_no',
+          prompt: 'You may splay your yellow or purple cards left',
+          yesText: 'Splay yellow/purple cards left',
+          noText: 'Do not splay yellow/purple cards'
+        },
+        nextState: { 
+          step: 'execute_splay',
+          targetPlayer: state.targetPlayer,
+          transferredCardId: state.transferredCardId
+        }
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Machinery: "I demand you exchange all cards in your hand with all the cards in my hand! If you do, score a card from your hand, and you may splay your red cards left."
+interface MachineryState {
+  step: 'check_condition' | 'waiting_exchange_choice' | 'execute_score' | 'execute_splay';
+  targetPlayer?: PlayerId;
+  exchangedCards?: CardId[];
+}
+
+export function machineryEffect(
+  context: DogmaContext,
+  state: MachineryState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'check_condition': {
+      // Find the other player
+      const targetPlayer = activatingPlayer === 0 ? 1 : 0;
+      
+      // Check if target player has cards in hand
+      const targetHandCards = gameData.players[targetPlayer]!.hands;
+      const activatingHandCards = gameData.players[activatingPlayer]!.hands;
+      
+      if (targetHandCards.length === 0 && activatingHandCards.length === 0) {
+        // No cards to exchange, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'machinery_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      // Offer choice to exchange hands
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'machinery_exchange_choice',
+          playerId: targetPlayer,
+          source: 'machinery_card_effect',
+          type: 'yes_no',
+          prompt: 'Exchange all cards in your hand with all the cards in the activating player\'s hand?',
+          yesText: 'Exchange hands',
+          noText: 'Do not exchange hands'
+        },
+        nextState: { 
+          step: 'waiting_exchange_choice',
+          targetPlayer
+        }
+      };
+    }
+    
+    case 'waiting_exchange_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no' || !choiceAnswer.answer) {
+        // Player chose not to exchange, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'machinery_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      if (targetPlayer === undefined) {
+        throw new Error('Target player not found in state');
+      }
+      
+      // Exchange hands
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      const targetHandCards = gameData.players[targetPlayer]!.hands;
+      const activatingHandCards = gameData.players[activatingPlayer]!.hands;
+      
+      // Swap the hands
+      newState = {
+        ...newState,
+        players: {
+          ...newState.players,
+          [targetPlayer]: {
+            ...newState.players[targetPlayer]!,
+            hands: [...activatingHandCards]
+          },
+          [activatingPlayer]: {
+            ...newState.players[activatingPlayer]!,
+            hands: [...targetHandCards]
+          }
+        }
+      };
+      
+      // Emit transfer events for each card
+      for (const cardId of targetHandCards) {
+        const transferEvent = emitEvent(newState, 'transferred', {
+          playerId: targetPlayer,
+          cardId,
+          fromZone: 'hand',
+          toZone: 'hand',
+          source: 'machinery_card_effect'
+        });
+        events.push(transferEvent);
+      }
+      
+      for (const cardId of activatingHandCards) {
+        const transferEvent = emitEvent(newState, 'transferred', {
+          playerId: activatingPlayer,
+          cardId,
+          fromZone: 'hand',
+          toZone: 'hand',
+          source: 'machinery_card_effect'
+        });
+        events.push(transferEvent);
+      }
+      
+      // Continue to score choice
+      return {
+        type: 'continue',
+        newState,
+        events,
+        nextState: { 
+          step: 'execute_score',
+          targetPlayer,
+          exchangedCards: [...targetHandCards, ...activatingHandCards]
+        }
+      };
+    }
+    
+    case 'execute_score': {
+      // Offer choice to score a card from hand
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.hands.length === 0) {
+        // No cards in hand, skip to splay choice
+        return {
+          type: 'continue',
+          newState: gameData,
+          events: [],
+          nextState: { 
+            step: 'execute_splay',
+            targetPlayer: state.targetPlayer,
+            exchangedCards: state.exchangedCards
+          }
+        };
+      }
+      
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'machinery_score_choice',
+          playerId: activatingPlayer,
+          source: 'machinery_card_effect',
+          type: 'select_cards',
+          prompt: 'Score a card from your hand',
+          from: { playerId: activatingPlayer, zone: 'hand' },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: { 
+          step: 'execute_score',
+          targetPlayer: state.targetPlayer,
+          exchangedCards: state.exchangedCards
+        }
+      };
+    }
+    
+    case 'execute_splay': {
+      // Offer choice to splay red cards left
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'machinery_splay_choice',
+          playerId: activatingPlayer,
+          source: 'machinery_card_effect',
+          type: 'yes_no',
+          prompt: 'You may splay your red cards left',
+          yesText: 'Splay red cards left',
+          noText: 'Do not splay red cards'
+        },
+        nextState: { 
+          step: 'execute_splay',
+          targetPlayer: state.targetPlayer,
+          exchangedCards: state.exchangedCards
+        }
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Medicine: "I demand you exchange the highest card in your score pile with the lowest card in my score pile!"
+interface MedicineState {
+  step: 'check_condition' | 'waiting_exchange_choice';
+  targetPlayer?: PlayerId;
+  highestCardId?: CardId;
+  lowestCardId?: CardId;
+}
+
+export function medicineEffect(
+  context: DogmaContext,
+  state: MedicineState,
+  choiceAnswer?: any
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  
+  switch (state.step) {
+    case 'check_condition': {
+      // Find the other player
+      const targetPlayer = activatingPlayer === 0 ? 1 : 0;
+      
+      // Check if both players have score cards
+      const targetScores = gameData.players[targetPlayer]!.scores;
+      const activatingScores = gameData.players[activatingPlayer]!.scores;
+      
+      if (targetScores.length === 0 || activatingScores.length === 0) {
+        // No cards to exchange, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'medicine_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      // Find highest card in target player's score pile
+      let highestCardId = targetScores[0]!;
+      let highestAge = 0;
+      for (const cardId of targetScores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age > highestAge) {
+          highestAge = card.age;
+          highestCardId = cardId;
+        }
+      }
+      
+      // Find lowest card in activating player's score pile
+      let lowestCardId = activatingScores[0]!;
+      let lowestAge = 10;
+      for (const cardId of activatingScores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age < lowestAge) {
+          lowestAge = card.age;
+          lowestCardId = cardId;
+        }
+      }
+      
+      // Offer choice to exchange the cards
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events: [],
+        choice: {
+          id: 'medicine_exchange_choice',
+          playerId: targetPlayer,
+          source: 'medicine_card_effect',
+          type: 'yes_no',
+          prompt: `Exchange your highest score card (age ${highestAge}) with the activating player's lowest score card (age ${lowestAge})?`,
+          yesText: 'Exchange score cards',
+          noText: 'Do not exchange score cards'
+        },
+        nextState: { 
+          step: 'waiting_exchange_choice',
+          targetPlayer,
+          highestCardId,
+          lowestCardId
+        }
+      };
+    }
+    
+    case 'waiting_exchange_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no' || !choiceAnswer.answer) {
+        // Player chose not to exchange, complete immediately
+        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
+          playerId: activatingPlayer,
+          cardId: context.cardId,
+          dogmaLevel: context.dogmaLevel,
+          source: 'medicine_card_effect',
+        });
+        
+        return {
+          type: 'complete',
+          newState: gameData,
+          events: [dogmaEvent],
+          effectType: 'demand'
+        };
+      }
+      
+      const targetPlayer = state.targetPlayer;
+      const highestCardId = state.highestCardId;
+      const lowestCardId = state.lowestCardId;
+      
+      if (targetPlayer === undefined || highestCardId === undefined || lowestCardId === undefined) {
+        throw new Error('Required state values not found');
+      }
+      
+      // Exchange the cards
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      // Remove cards from original locations
+      newState = {
+        ...newState,
+        players: {
+          ...newState.players,
+          [targetPlayer]: {
+            ...newState.players[targetPlayer]!,
+            scores: newState.players[targetPlayer]!.scores.filter(id => id !== highestCardId)
+          },
+          [activatingPlayer]: {
+            ...newState.players[activatingPlayer]!,
+            scores: newState.players[activatingPlayer]!.scores.filter(id => id !== lowestCardId)
+          }
+        }
+      };
+      
+      // Add cards to new locations
+      newState = {
+        ...newState,
+        players: {
+          ...newState.players,
+          [targetPlayer]: {
+            ...newState.players[targetPlayer]!,
+            scores: [...newState.players[targetPlayer]!.scores, lowestCardId]
+          },
+          [activatingPlayer]: {
+            ...newState.players[activatingPlayer]!,
+            scores: [...newState.players[activatingPlayer]!.scores, highestCardId]
+          }
+        }
+      };
+      
+      // Emit transfer events
+      const transferEvent1 = emitEvent(newState, 'transferred', {
+        playerId: targetPlayer,
+        cardId: highestCardId,
+        fromZone: 'score',
+        toZone: 'score',
+        source: 'medicine_card_effect'
+      });
+      
+      const transferEvent2 = emitEvent(newState, 'transferred', {
+        playerId: activatingPlayer,
+        cardId: lowestCardId,
+        fromZone: 'score',
+        toZone: 'score',
+        source: 'medicine_card_effect'
+      });
+      
+      events.push(transferEvent1, transferEvent2);
+      
+      // Emit dogma event
+      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
+        playerId: activatingPlayer,
+        cardId: context.cardId,
+        dogmaLevel: context.dogmaLevel,
+        source: 'medicine_card_effect',
+      });
+      events.push(dogmaEvent);
+      
+      return {
+        type: 'complete',
+        newState,
+        events,
+        effectType: 'demand'
+      };
+    }
+    
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
