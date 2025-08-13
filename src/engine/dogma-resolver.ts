@@ -8,7 +8,6 @@ import type {
 import type { 
   DogmaContext, 
   CardEffectFunction, 
-  EffectRegistry, 
   EffectResult
 } from '../types/dogma.js';
 import type { GameEvent } from '../types/events.js';
@@ -20,17 +19,17 @@ import { CARDS } from '../cards/database.js';
 import { countIcons } from './state-manipulation.js';
 import { autoClaimSpecialAchievements } from './achievements.js';
 
-// Global effect registry - maps card keys to effect functions
-const effectRegistry: EffectRegistry = { ...CARD_EFFECT_HANDLERS };
+// Global effect registry - maps numeric card IDs to effect functions
+const effectRegistry: Record<number, CardEffectFunction> = { ...CARD_EFFECT_HANDLERS };
 
-// Register a card effect function
-export function registerCardEffect(cardKey: string, effectFunction: CardEffectFunction): void {
-  effectRegistry[cardKey] = effectFunction;
+// Register a card effect function by numeric ID
+export function registerCardEffect(cardId: number, effectFunction: CardEffectFunction): void {
+  effectRegistry[cardId] = effectFunction;
 }
 
-// Get a card effect function by key
-export function getCardEffectFunction(cardKey: string): CardEffectFunction | undefined {
-  return effectRegistry[cardKey];
+// Get a card effect function by numeric ID
+export function getCardEffectFunction(cardId: number): CardEffectFunction | undefined {
+  return effectRegistry[cardId];
 }
 
 // Create simplified dogma context
@@ -77,15 +76,10 @@ export function executeDogmaEffect(
     throw new Error(`Unknown card ID: ${context.cardId}`);
   }
   
-  // Get card key from card title (simplified)
-  const cardId = getCardKeyFromTitle(card.title);
-  if (!cardId) {
-    throw new Error(`No effect handler for card: ${cardId}`);
-  }
-  
-  const effectFunction = effectRegistry[cardId];
+  // Use the card ID directly - no more title-to-ID conversion
+  const effectFunction = effectRegistry[context.cardId];
   if (!effectFunction) {
-    throw new Error(`No effect handler for card: ${cardId}`);
+    throw new Error(`No effect handler for card ID: ${context.cardId}`);
   }
   
   // Check if this effect is already active
@@ -95,7 +89,7 @@ export function executeDogmaEffect(
     return effectFunction(context, currentEffect.state);
   } else {
     // Start new effect with initial state
-    const initialState = getInitialState(cardId);
+    const initialState = getInitialState(context.cardId);
     return effectFunction(context, initialState);
   }
 }
@@ -217,14 +211,10 @@ export function resumeDogmaExecution(
     throw new Error(`Unknown card ID: ${currentEffect.cardId}`);
   }
   
-  const cardId = getCardKeyFromTitle(card.title);
-  if (!cardId) {
-    throw new Error(`No effect handler for card: ${cardId}`);
-  }
-  
-  const effectFunction = effectRegistry[cardId];
+  // Use the card ID directly - no more title-to-ID conversion
+  const effectFunction = effectRegistry[currentEffect.cardId];
   if (!effectFunction) {
-    throw new Error(`No effect handler for card: ${cardId}`);
+    throw new Error(`No effect handler for card ID: ${currentEffect.cardId}`);
   }
   
   // Create context and call effect function
@@ -279,31 +269,15 @@ export function resumeDogmaExecution(
   }
 }
 
-// Helper function to get card key from card title (returns card ID)
-function getCardKeyFromTitle(title: string): number | null {
-  const titleToId: Record<string, number> = {
-    'Agriculture': 1,
-    'Archery': 2,
-    'City States': 3,
-    'Clothing': 4,
-    'Code of Laws': 5,
-    'Domestication': 6,
-    'Masonry': 7,
-    'Metalworking': 8,
-    'Mysticism': 9,
-    'Oars': 10,
-    'Pottery': 11,
-    'Sailing': 12,
-    'The Wheel': 13,
-    'Tools': 14,
-    'Writing': 15
-  };
-  
-  return titleToId[title] || null;
-}
-
 // Helper function to get initial state for a card
 function getInitialState(cardId: number): any {
+  // Simplified effects don't need initial states
+  const simplifiedEffects = [12, 13, 15, 16, 20]; // Sailing, The Wheel, Writing, Calendar, Fermenting
+  
+  if (simplifiedEffects.includes(cardId)) {
+    return {}; // Simplified effects don't use state
+  }
+  
   switch (cardId) {
     case 1: // Agriculture
       return { step: 'check_hand' };
@@ -331,26 +305,16 @@ function getInitialState(cardId: number): any {
       };
     case 11: // Pottery
       return { step: 'waiting_return_choice' };
-    case 12: // Sailing
-      return { step: 'start' };
-    case 13: // The Wheel
-      return { step: 'start' };
     case 14: // Tools
       return { step: 'check_hand' };
-    case 15: // Writing
-      return { step: 'start' };
       
     // Age 2 Cards
-    case 16: // Calendar
-      return { step: 'check_score_vs_hand' };
     case 17: // Canal Building
       return { step: 'check_eligibility' };
     case 18: // Construction
       return { step: 'check_condition' };
     case 19: // Currency
       return { step: 'waiting_return_choice' };
-    case 20: // Fermenting
-      return { step: 'start' };
     case 21: // Mapmaking
       return { step: 'check_condition' };
     case 22: // Mathematics

@@ -468,37 +468,37 @@ export function oarsEffect(
 // Helper Functions
 // ============================================================================
 
-// Export all effect functions for registration
-export const CARD_EFFECT_HANDLERS = {
-  // Age 1 Cards (IDs 1-15)
-  1: agricultureEffect,      // Agriculture
-  2: archeryEffect,          // Archery
-  3: cityStatesEffect,       // City States
-  4: clothingEffect,         // Clothing
-  5: codeOfLawsEffect,       // Code of Laws
-  6: domesticationEffect,    // Domestication
-  7: masonryEffect,          // Masonry
-  8: metalworkingEffect,     // Metalworking
-  9: mysticismEffect,        // Mysticism
-  10: oarsEffect,            // Oars
-  11: potteryEffect,         // Pottery
-  12: sailingEffect,         // Sailing
-  13: theWheelEffect,        // The Wheel
-  14: toolsEffect,           // Tools
-  15: writingEffect,         // Writing
-  
-  // Age 2 Cards (IDs 16-25)
-  16: calendarEffect,        // Calendar
-  17: canalBuildingEffect,   // Canal Building
-  18: constructionEffect,    // Construction
-  19: currencyEffect,        // Currency
-  20: fermentingEffect,      // Fermenting
-  21: mapmakingEffect,       // Mapmaking
-  22: mathematicsEffect,     // Mathematics
-  23: monotheismEffect,      // Monotheism
-  24: philosophyEffect,      // Philosophy
-  25: roadBuildingEffect,    // Road Building
-}; 
+// Export all effect functions for registration - MOVED TO END OF FILE
+// export const CARD_EFFECT_HANDLERS = {
+//   // Age 1 Cards (IDs 1-15)
+//   1: agricultureEffect,      // Agriculture
+//   2: archeryEffect,          // Archery
+//   3: cityStatesEffect,       // City States
+//   4: clothingEffect,         // Clothing
+//   5: codeOfLawsEffect,       // Code of Laws
+//   6: domesticationEffect,    // Domestication
+//   7: masonryEffect,          // Masonry
+//   8: metalworkingEffect,     // Metalworking
+//   9: mysticismEffect,        // Mysticism
+//   10: oarsEffect,            // Oars
+//   11: potteryEffect,         // Pottery
+//   12: sailingEffect,         // Sailing
+//   13: theWheelEffect,        // The Wheel
+//   14: toolsEffect,           // Tools
+//   15: writingEffect,         // Writing
+//   
+//   // Age 2 Cards (IDs 16-25)
+//   16: calendarEffect,        // Calendar
+//   17: canalBuildingEffect,   // Canal Building
+//   18: constructionEffect,    // Construction
+//   19: currencyEffect,        // Currency
+//   20: fermentingEffect,      // Fermenting
+//   21: mapmakingEffect,       // Mapmaking
+//   22: mathematicsEffect,     // Mathematics
+//   23: monotheismEffect,      // Monotheism
+//   24: philosophyEffect,      // Philosophy
+//   25: roadBuildingEffect,    // Road Building
+// }; 
 
 // ============================================================================
 // Simple Cards Using New Primitives
@@ -1563,106 +1563,46 @@ export function potteryEffect(
   }
 }
 
-// Sailing: "Draw and meld a 1."
-interface SailingState {
-  step: 'start';
-}
-
-export function sailingEffect(
-  context: DogmaContext,
-  state: SailingState,
-  _choiceAnswer?: any
-): EffectResult {
+// Sailing: "Draw and meld a 1." - SIMPLIFIED
+export const sailingEffect = createSimpleEffect((context: DogmaContext) => {
   const { gameData, activatingPlayer } = context;
   
-  switch (state.step) {
-    case 'start': {
-      // Draw and meld a 1
-      let newState = gameData;
-      const events: GameEvent[] = [];
-      
-      newState = drawAndMeld(newState, activatingPlayer, 1, 1, events);
-      
-      // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'sailing_card_effect',
-      });
-      events.push(dogmaEvent);
-      
-      return {
-        type: 'complete',
-        newState,
-        events,
-        effectType: 'non-demand'
-      };
-    }
-    
-    default:
-      throw new Error(`Unknown step: ${(state as any).step}`);
-  }
-} 
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw and meld a 1
+  newState = drawAndMeld(newState, activatingPlayer, 1, 1, events);
+  
+  return [newState, events];
+});
 
 // ============================================================================
 // Age 2 Card Effects (IDs 16-25)
 // ============================================================================
 
-// Calendar: "Draw a 3 for each card in your score pile. If you have more cards in your score pile than in your hand, draw a 3."
-interface CalendarState {
-  step: 'check_score_vs_hand' | 'execute_draws';
-  scoreCount?: number;
-  handCount?: number;
-}
-
-export function calendarEffect(
-  context: DogmaContext,
-  state: CalendarState,
-  _choiceAnswer?: any
-): EffectResult {
+// Calendar: "Draw a 3 for each card in your score pile. If you have more cards in your score pile than in your hand, draw a 3." - SIMPLIFIED
+export const calendarEffect = createSimpleEffect((context: DogmaContext) => {
   const { gameData, activatingPlayer } = context;
   
-  switch (state.step) {
-    case 'check_score_vs_hand': {
-      const player = gameData.players[activatingPlayer]!;
-      const scoreCount = player.scores.length;
-      const handCount = player.hands.length;
-      
-      let newState = gameData;
-      const events: GameEvent[] = [];
-      
-      // Draw a 3 for each card in score pile
-      for (let i = 0; i < scoreCount; i++) {
-        newState = drawCard(newState, activatingPlayer, 3, events);
-      }
-      
-      // If more cards in score than hand, draw another 3
-      if (scoreCount > handCount) {
-        newState = drawCard(newState, activatingPlayer, 3, events);
-      }
-      
-      // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'calendar_card_effect',
-      });
-      events.push(dogmaEvent);
-      
-      return {
-        type: 'complete',
-        newState,
-        events,
-        effectType: 'non-demand'
-      };
-    }
-    
-    default:
-      throw new Error(`Unknown step: ${(state as any).step}`);
+  const player = gameData.players[activatingPlayer]!;
+  const scoreCount = player.scores.length;
+  const handCount = player.hands.length;
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw a 3 for each card in score pile
+  for (let i = 0; i < scoreCount; i++) {
+    newState = drawCard(newState, activatingPlayer, 3, events);
   }
-}
+  
+  // If more cards in score than hand, draw another 3
+  if (scoreCount > handCount) {
+    newState = drawCard(newState, activatingPlayer, 3, events);
+  }
+  
+  return [newState, events];
+});
 
 // Canal Building: "Exchange the highest card in your hand with the highest card in your score pile."
 interface CanalBuildingState {
@@ -2000,52 +1940,23 @@ export function currencyEffect(
   }
 }
 
-// Fermenting: "Draw a 2 for each [Leaf] icon on your board."
-interface FermentingState {
-  step: 'start';
-}
-
-export function fermentingEffect(
-  context: DogmaContext,
-  state: FermentingState,
-  _choiceAnswer?: any
-): EffectResult {
+// Fermenting: "Draw a 2 for each [Leaf] icon on your board." - SIMPLIFIED
+export const fermentingEffect = createSimpleEffect((context: DogmaContext) => {
   const { gameData, activatingPlayer } = context;
   
-  switch (state.step) {
-    case 'start': {
-      // Count leaf icons on board
-      const leafCount = countIcons(gameData, activatingPlayer, 'Leaf');
-      
-      let newState = gameData;
-      const events: GameEvent[] = [];
-      
-      // Draw a 2 for each leaf icon
-      for (let i = 0; i < leafCount; i++) {
-        newState = drawCard(newState, activatingPlayer, 2, events);
-      }
-      
-      // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'fermenting_card_effect',
-      });
-      events.push(dogmaEvent);
-      
-      return {
-        type: 'complete',
-        newState,
-        events,
-        effectType: 'non-demand'
-      };
-    }
-    
-    default:
-      throw new Error(`Unknown step: ${(state as any).step}`);
+  // Count leaf icons on board
+  const leafCount = countIcons(gameData, activatingPlayer, 'Leaf');
+  
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Draw a 2 for each leaf icon
+  for (let i = 0; i < leafCount; i++) {
+    newState = drawCard(newState, activatingPlayer, 2, events);
   }
-}
+  
+  return [newState, events];
+});
 
 // Mapmaking: "I demand you transfer a top card with a [Crown] from your board to my board! If you do, draw and score a 1."
 interface MapmakingState {
@@ -2572,3 +2483,38 @@ export function roadBuildingEffect(
       throw new Error(`Unknown step: ${(state as any).step}`);
   }
 } 
+
+// ============================================================================
+// Export all effect functions for registration
+// ============================================================================
+
+export const CARD_EFFECT_HANDLERS = {
+  // Age 1 Cards (IDs 1-15)
+  1: agricultureEffect,      // Agriculture
+  2: archeryEffect,          // Archery
+  3: cityStatesEffect,       // City States
+  4: clothingEffect,         // Clothing
+  5: codeOfLawsEffect,       // Code of Laws
+  6: domesticationEffect,    // Domestication
+  7: masonryEffect,          // Masonry
+  8: metalworkingEffect,     // Metalworking
+  9: mysticismEffect,        // Mysticism
+  10: oarsEffect,            // Oars
+  11: potteryEffect,         // Pottery
+  12: sailingEffect,         // Sailing
+  13: theWheelEffect,        // The Wheel
+  14: toolsEffect,           // Tools
+  15: writingEffect,         // Writing
+  
+  // Age 2 Cards (IDs 16-25)
+  16: calendarEffect,        // Calendar
+  17: canalBuildingEffect,   // Canal Building
+  18: constructionEffect,    // Construction
+  19: currencyEffect,        // Currency
+  20: fermentingEffect,      // Fermenting
+  21: mapmakingEffect,       // Mapmaking
+  22: mathematicsEffect,     // Mathematics
+  23: monotheismEffect,      // Monotheism
+  24: philosophyEffect,      // Philosophy
+  25: roadBuildingEffect,    // Road Building
+};
