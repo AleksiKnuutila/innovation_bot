@@ -741,3 +741,340 @@ export function safeExecute<T>(
     return { result: null, error: error as Error };
   }
 } 
+
+// ============ Composite Primitive Functions ============
+
+/**
+ * Draw a card from age X and immediately score it
+ * Used in 25+ cards like Agriculture, Pottery, Optics, etc.
+ */
+export function drawAndScore(
+  gameData: GameData,
+  playerId: PlayerId,
+  age: number,
+  count: number = 1,
+  events: GameEvent[]
+): GameData {
+  let newState = gameData;
+  
+  for (let i = 0; i < count; i++) {
+    // Draw the card
+    newState = drawCard(newState, playerId, age, events);
+    
+    // Get the last drawn card from hand
+    const player = newState.players[playerId]!;
+    const drawnCardId = player.hands[player.hands.length - 1]!;
+    
+    // Score it immediately
+    newState = scoreCard(newState, playerId, drawnCardId, events);
+  }
+  
+  return newState;
+}
+
+/**
+ * Draw a card from age X and immediately meld it
+ * Used in 20+ cards like Sailing, Mathematics, Alchemy, etc.
+ */
+export function drawAndMeld(
+  gameData: GameData,
+  playerId: PlayerId,
+  age: number,
+  count: number = 1,
+  events: GameEvent[]
+): GameData {
+  let newState = gameData;
+  
+  for (let i = 0; i < count; i++) {
+    // Draw the card
+    newState = drawCard(newState, playerId, age, events);
+    
+    // Get the last drawn card from hand
+    const player = newState.players[playerId]!;
+    const drawnCardId = player.hands[player.hands.length - 1]!;
+    
+    // Meld it immediately
+    newState = meldCard(newState, playerId, drawnCardId, events);
+  }
+  
+  return newState;
+}
+
+/**
+ * Draw a card from age X and immediately tuck it
+ * Used in 15+ cards like Code of Laws, Monotheism, Colonialism, etc.
+ */
+export function drawAndTuck(
+  gameData: GameData,
+  playerId: PlayerId,
+  age: number,
+  count: number = 1,
+  events: GameEvent[]
+): GameData {
+  let newState = gameData;
+  
+  for (let i = 0; i < count; i++) {
+    // Draw the card
+    newState = drawCard(newState, playerId, age, events);
+    
+    // Get the last drawn card from hand
+    const player = newState.players[playerId]!;
+    const drawnCardId = player.hands[player.hands.length - 1]!;
+    
+    // Get card data to determine color
+    const card = CARDS.cardsById.get(drawnCardId);
+    if (!card) {
+      throw new Error(`Invalid card ID: ${drawnCardId}`);
+    }
+    
+    // Tuck it immediately
+    newState = tuckCard(newState, playerId, drawnCardId, card.color, events);
+  }
+  
+  return newState;
+}
+
+/**
+ * Draw a card from age X and immediately splay a color
+ * Used in 12+ cards like Philosophy, Paper, Invention, etc.
+ */
+export function drawAndSplay(
+  gameData: GameData,
+  playerId: PlayerId,
+  age: number,
+  count: number = 1,
+  color: Color,
+  direction: SplayDirection,
+  events: GameEvent[]
+): GameData {
+  let newState = gameData;
+  
+  // Draw the cards first
+  for (let i = 0; i < count; i++) {
+    newState = drawCard(newState, playerId, age, events);
+  }
+  
+  // Then splay the color
+  newState = splayColor(newState, playerId, color, direction, events);
+  
+  return newState;
+}
+
+/**
+ * Demand that a player transfer a card with specific criteria
+ * Used in 15+ cards like Archery, City States, Oars, etc.
+ */
+export function demandTransfer(
+  gameData: GameData,
+  demandingPlayer: PlayerId,
+  targetPlayer: PlayerId,
+  cardType: 'any' | 'with_icon' | 'without_icon' | 'non_color',
+  fromZone: 'hand' | 'board' | 'score',
+  toZone: 'hand' | 'board' | 'score',
+  events: GameEvent[],
+  iconType?: string,
+  color?: Color
+): GameData {
+  const newState = deepClone(gameData);
+  const targetPlayerData = newState.players[targetPlayer]!;
+  
+  // Find valid cards based on criteria
+  let validCards: CardId[] = [];
+  
+  if (fromZone === 'hand') {
+    validCards = targetPlayerData.hands.filter(cardId => {
+      const card = CARDS.cardsById.get(cardId);
+      if (!card) return false;
+      
+      if (cardType === 'with_icon' && iconType) {
+        return hasIcon(newState, targetPlayer, iconType);
+      } else if (cardType === 'without_icon' && iconType) {
+        return !hasIcon(newState, targetPlayer, iconType);
+      } else if (cardType === 'non_color' && color) {
+        return card.color !== color;
+      }
+      return true;
+    });
+  } else if (fromZone === 'board') {
+    // Find top cards on board
+    for (const colorStack of targetPlayerData.colors) {
+      if (colorStack.cards.length > 0) {
+        const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
+        const card = CARDS.cardsById.get(topCardId);
+        if (!card) continue;
+        
+        if (cardType === 'with_icon' && iconType) {
+          if (hasIcon(newState, targetPlayer, iconType)) {
+            validCards.push(topCardId);
+          }
+        } else if (cardType === 'without_icon' && iconType) {
+          if (!hasIcon(newState, targetPlayer, iconType)) {
+            validCards.push(topCardId);
+          }
+        } else if (cardType === 'non_color' && color) {
+          if (card.color !== color) {
+            validCards.push(topCardId);
+          }
+        } else {
+          validCards.push(topCardId);
+        }
+      }
+    }
+  } else if (fromZone === 'score') {
+    validCards = targetPlayerData.scores.filter(cardId => {
+      const card = CARDS.cardsById.get(cardId);
+      if (!card) return false;
+      
+      if (cardType === 'with_icon' && iconType) {
+        return hasIcon(newState, targetPlayer, iconType);
+      } else if (cardType === 'without_icon' && iconType) {
+        return !hasIcon(newState, targetPlayer, iconType);
+      } else if (cardType === 'non_color' && color) {
+        return card.color !== color;
+      }
+      return true;
+    });
+  }
+  
+  // If no valid cards, return unchanged state
+  if (validCards.length === 0) {
+    return newState;
+  }
+  
+  // Transfer the first valid card found
+  const cardToTransfer = validCards[0]!;
+  return transferCard(newState, targetPlayer, demandingPlayer, cardToTransfer, fromZone, toZone, events);
+}
+
+/**
+ * Demand that a player return cards from a specific zone
+ * Used in 8+ cards like Anatomy, Fission, Databases, etc.
+ */
+export function demandReturn(
+  gameData: GameData,
+  _demandingPlayer: PlayerId,
+  targetPlayer: PlayerId,
+  zone: 'hand' | 'board' | 'score',
+  cardType: 'any' | 'highest' | 'lowest' | 'all',
+  count: number = 1,
+  events: GameEvent[]
+): GameData {
+  let newState = deepClone(gameData);
+  const targetPlayerData = newState.players[targetPlayer]!;
+  
+  let cardsToReturn: CardId[] = [];
+  
+  if (zone === 'hand') {
+    if (cardType === 'all') {
+      cardsToReturn = [...targetPlayerData.hands];
+    } else if (cardType === 'highest') {
+      // Find highest value card(s)
+      const sortedCards = [...targetPlayerData.hands].sort((a, b) => {
+        const cardA = CARDS.cardsById.get(a);
+        const cardB = CARDS.cardsById.get(b);
+        return (cardB?.age || 0) - (cardA?.age || 0);
+      });
+      cardsToReturn = sortedCards.slice(0, count);
+    } else if (cardType === 'lowest') {
+      // Find lowest value card(s)
+      const sortedCards = [...targetPlayerData.hands].sort((a, b) => {
+        const cardA = CARDS.cardsById.get(a);
+        const cardB = CARDS.cardsById.get(b);
+        return (cardA?.age || 0) - (cardB?.age || 0);
+      });
+      cardsToReturn = sortedCards.slice(0, count);
+    }
+  } else if (zone === 'score') {
+    if (cardType === 'all') {
+      cardsToReturn = [...targetPlayerData.scores];
+    } else if (cardType === 'highest') {
+      // Find highest value card(s)
+      const sortedCards = [...targetPlayerData.scores].sort((a, b) => {
+        const cardA = CARDS.cardsById.get(a);
+        const cardB = CARDS.cardsById.get(b);
+        return (cardB?.age || 0) - (cardA?.age || 0);
+      });
+      cardsToReturn = sortedCards.slice(0, count);
+    } else if (cardType === 'lowest') {
+      // Find lowest value card(s)
+      const sortedCards = [...targetPlayerData.scores].sort((a, b) => {
+        const cardA = CARDS.cardsById.get(a);
+        const cardB = CARDS.cardsById.get(b);
+        return (cardA?.age || 0) - (cardB?.age || 0);
+      });
+      cardsToReturn = sortedCards.slice(0, count);
+    }
+  }
+  
+  // Return the cards
+  for (const cardId of cardsToReturn) {
+    if (zone === 'hand') {
+      // Remove from hand and return to supply
+      const card = CARDS.cardsById.get(cardId);
+      if (card) {
+        newState = returnCard(newState, targetPlayer, cardId, card.age, events);
+      }
+    } else if (zone === 'score') {
+      // Remove from score pile (no return to supply for score cards)
+      const scoreIndex = targetPlayerData.scores.indexOf(cardId);
+      if (scoreIndex !== -1) {
+        targetPlayerData.scores.splice(scoreIndex, 1);
+        
+        // Emit event for card removed from score
+        const event = emitEvent(newState, 'transferred', {
+          playerId: targetPlayer,
+          cardId,
+          fromZone: { playerId: targetPlayer, zone: 'score' },
+          toZone: { playerId: null, zone: 'removed' },
+          source: 'demand_return'
+        });
+        events.push(event);
+      }
+    }
+  }
+  
+  return newState;
+}
+
+/**
+ * Exchange cards between hand and score pile
+ * Used in 6+ cards like Canal Building, Bicycle, etc.
+ */
+export function exchangeHandScore(
+  gameData: GameData,
+  playerId: PlayerId,
+  handCards: CardId[],
+  scoreCards: CardId[],
+  events: GameEvent[]
+): GameData {
+  return exchangeCards(gameData, playerId, handCards, scoreCards, events);
+}
+
+/**
+ * Exchange cards with an opponent
+ * Used in 4+ cards like Machinery, Medicine, Sanitation, etc.
+ */
+export function exchangeWithOpponent(
+  gameData: GameData,
+  playerId: PlayerId,
+  opponentId: PlayerId,
+  fromZone: 'hand' | 'board' | 'score',
+  toZone: 'hand' | 'board' | 'score',
+  playerCards: CardId[],
+  opponentCards: CardId[],
+  events: GameEvent[]
+): GameData {
+  let newState = gameData;
+  
+  // Transfer player's cards to opponent
+  for (const cardId of playerCards) {
+    newState = transferCard(newState, playerId, opponentId, cardId, fromZone, toZone, events);
+  }
+  
+  // Transfer opponent's cards to player
+  for (const cardId of opponentCards) {
+    newState = transferCard(newState, opponentId, playerId, cardId, fromZone, toZone, events);
+  }
+  
+  return newState;
+} 

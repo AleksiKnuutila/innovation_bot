@@ -78,14 +78,14 @@ export function executeDogmaEffect(
   }
   
   // Get card key from card title (simplified)
-  const cardKey = getCardKeyFromTitle(card.title);
-  if (!cardKey) {
-    throw new Error(`No effect handler for card: ${cardKey}`);
+  const cardId = getCardKeyFromTitle(card.title);
+  if (!cardId) {
+    throw new Error(`No effect handler for card: ${cardId}`);
   }
   
-  const effectFunction = effectRegistry[cardKey];
+  const effectFunction = effectRegistry[cardId];
   if (!effectFunction) {
-    throw new Error(`No effect handler for card: ${cardKey}`);
+    throw new Error(`No effect handler for card: ${cardId}`);
   }
   
   // Check if this effect is already active
@@ -95,7 +95,7 @@ export function executeDogmaEffect(
     return effectFunction(context, currentEffect.state);
   } else {
     // Start new effect with initial state
-    const initialState = getInitialState(cardKey);
+    const initialState = getInitialState(cardId);
     return effectFunction(context, initialState);
   }
 }
@@ -123,11 +123,11 @@ export function processDogmaAction(
       };
       
     case 'need_choice':
-      // Store choice and effect state
+      // Set the current effect so it can be resumed later
       const choiceState = {
         ...result.newState,
         currentEffect: {
-          cardId,
+          cardId: context.cardId,
           state: result.nextState,
           choice: result.choice
         }
@@ -135,7 +135,7 @@ export function processDogmaAction(
       
       return {
         newState: choiceState,
-        events: [...events, ...result.events],
+        events: result.events,
         nextPhase: 'AwaitingChoice',
         pendingChoice: result.choice
       };
@@ -217,14 +217,14 @@ export function resumeDogmaExecution(
     throw new Error(`Unknown card ID: ${currentEffect.cardId}`);
   }
   
-  const cardKey = getCardKeyFromTitle(card.title);
-  if (!cardKey) {
-    throw new Error(`No effect handler for card: ${cardKey}`);
+  const cardId = getCardKeyFromTitle(card.title);
+  if (!cardId) {
+    throw new Error(`No effect handler for card: ${cardId}`);
   }
   
-  const effectFunction = effectRegistry[cardKey];
+  const effectFunction = effectRegistry[cardId];
   if (!effectFunction) {
-    throw new Error(`No effect handler for card: ${cardKey}`);
+    throw new Error(`No effect handler for card: ${cardId}`);
   }
   
   // Create context and call effect function
@@ -279,30 +279,89 @@ export function resumeDogmaExecution(
   }
 }
 
-// Helper function to get card key from card title (simplified)
-function getCardKeyFromTitle(title: string): string | null {
-  const titleToKey: Record<string, string> = {
-    'Writing': 'writing',
-    'Code of Laws': 'codeOfLaws',
-    'Oars': 'oars'
+// Helper function to get card key from card title (returns card ID)
+function getCardKeyFromTitle(title: string): number | null {
+  const titleToId: Record<string, number> = {
+    'Agriculture': 1,
+    'Archery': 2,
+    'City States': 3,
+    'Clothing': 4,
+    'Code of Laws': 5,
+    'Domestication': 6,
+    'Masonry': 7,
+    'Metalworking': 8,
+    'Mysticism': 9,
+    'Oars': 10,
+    'Pottery': 11,
+    'Sailing': 12,
+    'The Wheel': 13,
+    'Tools': 14,
+    'Writing': 15
   };
   
-  return titleToKey[title] || null;
+  return titleToId[title] || null;
 }
 
 // Helper function to get initial state for a card
-function getInitialState(cardKey: string): any {
-  switch (cardKey) {
-    case 'writing':
-      return { step: 'start' };
-    case 'codeOfLaws':
+function getInitialState(cardId: number): any {
+  switch (cardId) {
+    case 1: // Agriculture
+      return { step: 'check_hand' };
+    case 2: // Archery
+      return { step: 'execute_demand' };
+    case 3: // City States
       return { step: 'check_condition' };
-    case 'oars':
+    case 4: // Clothing
+      return { step: 'waiting_meld_choice' };
+    case 5: // Code of Laws
+      return { step: 'check_condition' };
+    case 6: // Domestication
+      return { step: 'check_hand' };
+    case 7: // Masonry
+      return { step: 'waiting_meld_choice' };
+    case 8: // Metalworking
+      return { step: 'draw_reveal' };
+    case 9: // Mysticism
+      return { step: 'draw_first' };
+    case 10: // Oars
       return { 
         step: 'execute_demand', 
         affectedPlayers: [], 
         currentPlayerIndex: 0 
       };
+    case 11: // Pottery
+      return { step: 'waiting_return_choice' };
+    case 12: // Sailing
+      return { step: 'start' };
+    case 13: // The Wheel
+      return { step: 'start' };
+    case 14: // Tools
+      return { step: 'check_hand' };
+    case 15: // Writing
+      return { step: 'start' };
+      
+    // Age 2 Cards
+    case 16: // Calendar
+      return { step: 'check_score_vs_hand' };
+    case 17: // Canal Building
+      return { step: 'check_eligibility' };
+    case 18: // Construction
+      return { step: 'check_condition' };
+    case 19: // Currency
+      return { step: 'waiting_return_choice' };
+    case 20: // Fermenting
+      return { step: 'start' };
+    case 21: // Mapmaking
+      return { step: 'check_condition' };
+    case 22: // Mathematics
+      return { step: 'waiting_return_choice' };
+    case 23: // Monotheism
+      return { step: 'check_condition' };
+    case 24: // Philosophy
+      return { step: 'waiting_splay_choice' };
+    case 25: // Road Building
+      return { step: 'waiting_meld_choice' };
+      
     default:
       return { step: 'start' };
   }

@@ -19,7 +19,16 @@ export {
   getTopCard,
   getTopCards,
   hasIcon,
-  countIcons
+  countIcons,
+  // New composite primitives
+  drawAndScore,
+  drawAndMeld,
+  drawAndTuck,
+  drawAndSplay,
+  demandTransfer,
+  demandReturn,
+  exchangeHandScore,
+  exchangeWithOpponent
 } from './state-manipulation.js';
 
 export { 
