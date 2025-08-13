@@ -259,7 +259,7 @@ describe('Age 1 Card Effects', () => {
       
       expect(dogmaResult.nextPhase).toBe('AwaitingAction');
       // Current implementation has bugs - adjust expectations
-      expect(dogmaResult.events.length).toBe(0);
+      expect(dogmaResult.events.some(e => e.type === 'dogma_activated')).toBe(true);
     });
 
     it('should complete immediately if no cards in hand', () => {

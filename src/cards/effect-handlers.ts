@@ -1099,91 +1099,38 @@ export function clothingEffect(
   }
 }
 
-// Domestication: "Meld the lowest card in your hand. Draw a 1."
-interface DomesticationState {
-  step: 'check_hand' | 'execute_meld_draw';
-}
-
-export function domesticationEffect(
-  context: DogmaContext,
-  state: DomesticationState,
-  _choiceAnswer?: any
-): EffectResult {
+// Domestication: "Meld the lowest card in your hand. Draw a 1." - SIMPLIFIED
+export const domesticationEffect = createSimpleEffect((context: DogmaContext) => {
   const { gameData, activatingPlayer } = context;
   
-  switch (state.step) {
-    case 'check_hand': {
-      const player = gameData.players[activatingPlayer]!;
-      
-      if (player.hands.length === 0) {
-        // No cards in hand, complete immediately
-        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
-          playerId: activatingPlayer,
-          cardId: context.cardId,
-          dogmaLevel: context.dogmaLevel,
-          source: 'domestication_card_effect',
-        });
-        
-        return {
-          type: 'complete',
-          newState: gameData,
-          events: [dogmaEvent],
-          effectType: 'non-demand'
-        };
-      }
-      
-      // Continue to execution
-      return {
-        type: 'continue',
-        newState: gameData,
-        events: [],
-        nextState: { step: 'execute_meld_draw' }
-      };
-    }
-    
-    case 'execute_meld_draw': {
-      const player = gameData.players[activatingPlayer]!;
-      
-      // Find the lowest card in hand
-      let lowestCardId = player.hands[0]!;
-      let lowestAge = 10;
-      
-      for (const cardId of player.hands) {
-        const card = CARDS.cardsById.get(cardId);
-        if (card && card.age < lowestAge) {
-          lowestAge = card.age;
-          lowestCardId = cardId;
-        }
-      }
-      
-      // Meld the lowest card and draw a 1
-      let newState = gameData;
-      const events: GameEvent[] = [];
-      
-      newState = meldCard(newState, activatingPlayer, lowestCardId, events);
-      newState = drawCard(newState, activatingPlayer, 1, events);
-      
-      // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'domestication_card_effect',
-      });
-      events.push(dogmaEvent);
-      
-      return {
-        type: 'complete',
-        newState,
-        events,
-        effectType: 'non-demand'
-      };
-    }
-    
-    default:
-      throw new Error(`Unknown step: ${(state as any).step}`);
+  const player = gameData.players[activatingPlayer]!;
+  
+  // If no cards in hand, complete immediately
+  if (player.hands.length === 0) {
+    return [gameData, []];
   }
-}
+  
+  // Find the lowest card in hand
+  let lowestCardId = player.hands[0]!;
+  let lowestAge = 10;
+  
+  for (const cardId of player.hands) {
+    const card = CARDS.cardsById.get(cardId);
+    if (card && card.age < lowestAge) {
+      lowestAge = card.age;
+      lowestCardId = cardId;
+    }
+  }
+  
+  // Meld the lowest card and draw a 1
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  newState = meldCard(newState, activatingPlayer, lowestCardId, events);
+  newState = drawCard(newState, activatingPlayer, 1, events);
+  
+  return [newState, events];
+});
 
 // Masonry: "You may meld any number of cards from your hand, each with a [Castle]. If you melded four or more cards, claim the Monument achievement."
 interface MasonryState {
@@ -1606,134 +1553,81 @@ export const calendarEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
-// Canal Building: "Exchange the highest card in your hand with the highest card in your score pile."
-interface CanalBuildingState {
-  step: 'check_eligibility' | 'execute_exchange';
-}
-
-export function canalBuildingEffect(
-  context: DogmaContext,
-  state: CanalBuildingState,
-  _choiceAnswer?: any
-): EffectResult {
+// Canal Building: "Exchange the highest card in your hand with the highest card in your score pile." - SIMPLIFIED
+export const canalBuildingEffect = createSimpleEffect((context: DogmaContext) => {
   const { gameData, activatingPlayer } = context;
   
-  switch (state.step) {
-    case 'check_eligibility': {
-      const player = gameData.players[activatingPlayer]!;
-      
-      if (player.hands.length === 0 || player.scores.length === 0) {
-        // No cards to exchange, complete immediately
-        const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
-          playerId: activatingPlayer,
-          cardId: context.cardId,
-          dogmaLevel: context.dogmaLevel,
-          source: 'canalBuilding_card_effect',
-        });
-        
-        return {
-          type: 'complete',
-          newState: gameData,
-          events: [dogmaEvent],
-          effectType: 'non-demand'
-        };
-      }
-      
-      // Continue to execution
-      return {
-        type: 'continue',
-        newState: gameData,
-        events: [],
-        nextState: { step: 'execute_exchange' }
-      };
-    }
-    
-    case 'execute_exchange': {
-      const player = gameData.players[activatingPlayer]!;
-      
-      // Find highest card in hand
-      let highestHandCard = player.hands[0]!;
-      let highestHandAge = 0;
-      
-      for (const cardId of player.hands) {
-        const card = CARDS.cardsById.get(cardId);
-        if (card && card.age > highestHandAge) {
-          highestHandAge = card.age;
-          highestHandCard = cardId;
-        }
-      }
-      
-      // Find highest card in score pile
-      let highestScoreCard = player.scores[0]!;
-      let highestScoreAge = 0;
-      
-      for (const cardId of player.scores) {
-        const card = CARDS.cardsById.get(cardId);
-        if (card && card.age > highestScoreAge) {
-          highestScoreAge = card.age;
-          highestScoreCard = cardId;
-        }
-      }
-      
-      // Exchange the cards
-      let newState = gameData;
-      const events: GameEvent[] = [];
-      
-      // Remove from original locations and add to new locations
-      newState = {
-        ...newState,
-        players: {
-          ...newState.players,
-          [activatingPlayer]: {
-            ...newState.players[activatingPlayer]!,
-            hands: newState.players[activatingPlayer]!.hands.filter(id => id !== highestHandCard).concat([highestScoreCard]),
-            scores: newState.players[activatingPlayer]!.scores.filter(id => id !== highestScoreCard).concat([highestHandCard])
-          }
-        }
-      };
-      
-      // Emit transfer events
-      const transferEvent1 = emitEvent(newState, 'transferred', {
-        playerId: activatingPlayer,
-        cardId: highestHandCard,
-        fromZone: 'hand',
-        toZone: 'score',
-        source: 'canalBuilding_card_effect'
-      });
-      events.push(transferEvent1);
-      
-      const transferEvent2 = emitEvent(newState, 'transferred', {
-        playerId: activatingPlayer,
-        cardId: highestScoreCard,
-        fromZone: 'score',
-        toZone: 'hand',
-        source: 'canalBuilding_card_effect'
-      });
-      events.push(transferEvent2);
-      
-      // Emit dogma event
-      const dogmaEvent = emitEvent(newState, 'dogma_activated', {
-        playerId: activatingPlayer,
-        cardId: context.cardId,
-        dogmaLevel: context.dogmaLevel,
-        source: 'canalBuilding_card_effect',
-      });
-      events.push(dogmaEvent);
-      
-      return {
-        type: 'complete',
-        newState,
-        events,
-        effectType: 'non-demand'
-      };
-    }
-    
-    default:
-      throw new Error(`Unknown step: ${(state as any).step}`);
+  const player = gameData.players[activatingPlayer]!;
+  
+  // If no cards to exchange, complete immediately
+  if (player.hands.length === 0 || player.scores.length === 0) {
+    return [gameData, []];
   }
-}
+  
+  // Find highest card in hand
+  let highestHandCard = player.hands[0]!;
+  let highestHandAge = 0;
+  
+  for (const cardId of player.hands) {
+    const card = CARDS.cardsById.get(cardId);
+    if (card && card.age > highestHandAge) {
+      highestHandAge = card.age;
+      highestHandCard = cardId;
+    }
+  }
+  
+  // Find highest card in score pile
+  let highestScoreCard = player.scores[0]!;
+  let highestScoreAge = 0;
+  
+  for (const cardId of player.scores) {
+    const card = CARDS.cardsById.get(cardId);
+    if (card && card.age > highestScoreAge) {
+      highestScoreAge = card.age;
+      highestScoreCard = cardId;
+    }
+  }
+  
+  // Exchange the cards
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Remove from original locations and add to new locations
+  newState = {
+    ...newState,
+    players: {
+      ...newState.players,
+      [activatingPlayer]: {
+        ...newState.players[activatingPlayer]!,
+        hands: newState.players[activatingPlayer]!.hands.filter(id => id !== highestHandCard).concat([highestScoreCard]),
+        scores: newState.players[activatingPlayer]!.scores.filter(id => id !== highestScoreCard).concat([highestHandCard])
+      }
+    }
+  };
+  
+  // Emit transfer events
+  const transferEvent1 = emitEvent(newState, 'transferred', {
+    playerId: activatingPlayer,
+    cardId: highestHandCard,
+    fromZone: 'hand',
+    toZone: 'score',
+    source: 'canalBuilding_card_effect'
+  });
+  
+  const transferEvent2 = emitEvent(newState, 'transferred', {
+    playerId: activatingPlayer,
+    cardId: highestScoreCard,
+    fromZone: 'score',
+    toZone: 'hand',
+    source: 'canalBuilding_card_effect'
+  });
+  
+  events.push(transferEvent1, transferEvent2);
+  
+  return [newState, events];
+});
 
-// Construction: "I demand you transfer a top card with a [Castle] from your board to my board! If you do, claim the Empire achievement."
+// Construction: "I demand you transfer two cards from your hand to my hand! If you do, claim the Empire achievement."
 interface ConstructionState {
   step: 'check_condition' | 'waiting_transfer_choice';
   targetPlayer?: PlayerId;

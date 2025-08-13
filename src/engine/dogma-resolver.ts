@@ -272,7 +272,7 @@ export function resumeDogmaExecution(
 // Helper function to get initial state for a card
 function getInitialState(cardId: number): any {
   // Simplified effects don't need initial states
-  const simplifiedEffects = [12, 13, 15, 16, 20]; // Sailing, The Wheel, Writing, Calendar, Fermenting
+  const simplifiedEffects = [6, 12, 13, 15, 16, 17, 20]; // Domestication, Sailing, The Wheel, Writing, Calendar, Canal Building, Fermenting
   
   if (simplifiedEffects.includes(cardId)) {
     return {}; // Simplified effects don't use state
@@ -289,8 +289,6 @@ function getInitialState(cardId: number): any {
       return { step: 'waiting_meld_choice' };
     case 5: // Code of Laws
       return { step: 'check_condition' };
-    case 6: // Domestication
-      return { step: 'check_hand' };
     case 7: // Masonry
       return { step: 'waiting_meld_choice' };
     case 8: // Metalworking
@@ -309,8 +307,6 @@ function getInitialState(cardId: number): any {
       return { step: 'check_hand' };
       
     // Age 2 Cards
-    case 17: // Canal Building
-      return { step: 'check_eligibility' };
     case 18: // Construction
       return { step: 'check_condition' };
     case 19: // Currency
