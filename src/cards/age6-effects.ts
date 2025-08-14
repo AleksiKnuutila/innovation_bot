@@ -451,4 +451,147 @@ export function classificationEffect(
     default:
       throw new Error(`Unknown step: ${(state as any).step}`);
   }
+}
+
+// Encyclopedia (ID 61) - Optional meld all highest cards from score pile
+interface EncyclopediaState {
+  step: 'check_score' | 'waiting_meld_choice';
+}
+
+export function encyclopediaEffect(
+  context: DogmaContext,
+  state: EncyclopediaState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_score': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.scores.length === 0) {
+        // No score cards, complete immediately
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Find the highest age among score cards
+      let highestAge = 0;
+      for (const cardId of player.scores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age > highestAge) {
+          highestAge = card.age;
+        }
+      }
+
+      // Count how many cards have the highest age
+      const highestCards: number[] = [];
+      for (const cardId of player.scores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age === highestAge) {
+          highestCards.push(cardId);
+        }
+      }
+
+      if (highestCards.length === 0) {
+        // No cards found (shouldn't happen), complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer choice to meld all highest cards
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `encyclopedia_meld_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may meld all the highest cards in your score pile.',
+          source: 'encyclopedia_card_effect',
+          yesText: `Meld ${highestCards.length} highest card${highestCards.length > 1 ? 's' : ''}`,
+          noText: 'Skip melding'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_meld_choice'
+        }
+      };
+    }
+
+    case 'waiting_meld_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      if (!choiceAnswer.answer) {
+        // Player chose not to meld, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Player chose to meld - find all highest cards again
+      const player = newState.players[activatingPlayer]!;
+      
+      let highestAge = 0;
+      for (const cardId of player.scores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age > highestAge) {
+          highestAge = card.age;
+        }
+      }
+
+      const highestCards: number[] = [];
+      for (const cardId of player.scores) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.age === highestAge) {
+          highestCards.push(cardId);
+        }
+      }
+
+      // Move each highest card from score pile to board (meld them)
+      for (const cardId of highestCards) {
+        // Get card data to determine color
+        const card = CARDS.cardsById.get(cardId);
+        if (!card) {
+          throw new Error(`Card ${cardId} not found in database`);
+        }
+
+        // Remove from score pile
+        const scoreIndex = player.scores.indexOf(cardId);
+        if (scoreIndex !== -1) {
+          player.scores.splice(scoreIndex, 1);
+          
+          // Add to appropriate color stack on board
+          const existingColorStack = player.colors.find(stack => stack.color === card.color);
+          if (existingColorStack) {
+            existingColorStack.cards.push(cardId);
+          } else {
+            player.colors.push({
+              color: card.color,
+              cards: [cardId],
+            });
+          }
+          
+          // Emit melded event
+          const meldedEvent = emitEvent(newState, 'melded', {
+            playerId: activatingPlayer,
+            cardId,
+            color: card.color,
+            fromHand: false, // From score pile, not hand
+          });
+          events.push(meldedEvent);
+        }
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
 } 

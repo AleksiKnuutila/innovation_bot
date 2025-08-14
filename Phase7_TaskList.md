@@ -9,13 +9,13 @@
 
 ## 🎯 Current Progress Summary
 
-**Overall Progress**: 59/105 cards (56%) complete
+**Overall Progress**: 60/105 cards (57%) complete
 - ✅ **Age 1 Cards**: 15/15 (100%) - Complete with comprehensive testing
 - ✅ **Age 2 Cards**: 10/10 (100%) - Complete with comprehensive testing  
 - ✅ **Age 3 Cards**: 10/10 (100%) - Complete with comprehensive testing
 - ✅ **Age 4 Cards**: 7/10 (70%) - 7 fully working, 3 complex demand effects structured
 - ✅ **Age 5 Cards**: 6/10 (60%) - 6 fully working, 4 complex demand effects remaining
-- ✅ **Age 6 Cards**: 4/10 (40%) - 4 fully working (Atomic Theory, Machine Tools, Canning, Classification)
+- ✅ **Age 6 Cards**: 5/10 (50%) - 5 fully working (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia)
 - ⏳ **Age 7+ Cards**: 0/55 (0%) - Not yet implemented
 
 **Completed Major Tasks**:
@@ -269,6 +269,7 @@
 - [x] Machine Tools (ID 63) - ✅ **FULLY WORKING** - Draw and score a card equal to highest score card value
 - [x] Canning (ID 57) - ✅ **FULLY WORKING** - Optional draw/tuck 6, score cards without Factory, optional splay yellow right
 - [x] Classification (ID 58) - ✅ **FULLY WORKING** - Reveal hand color, take/meld all cards of that color from all players
+- [x] Encyclopedia (ID 61) - ✅ **FULLY WORKING** - Optional meld all highest cards from score pile
 - [ ] Corporations (ID 59) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
 - [ ] Emancipation (ID 60) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
 - [ ] Fast Food (ID 61) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
@@ -278,7 +279,7 @@
 - [ ] Socialism (ID 65) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
 
 **Implementation Progress**:
-- ✅ **Working Cards**: 4/10 (Atomic Theory with proper choice behavior, Machine Tools, Canning, Classification)
+- ✅ **Working Cards**: 5/10 (Atomic Theory with proper choice behavior, Machine Tools, Canning, Classification, Encyclopedia)
 - ✅ **File Organization**: Created `age6-effects.ts` for better code organization
 - ✅ **Choice System**: Validated "You may" effects work correctly with yes/no choices
 - ✅ **Test Framework**: Age 6 test file created with comprehensive test patterns

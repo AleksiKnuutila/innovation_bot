@@ -438,4 +438,114 @@ describe('Age 6 Card Effects', () => {
       expect(revealsEvents).toHaveLength(0);
     });
   });
+
+  describe('Encyclopedia (ID 61)', () => {
+    it('should offer choice to meld all highest score cards', () => {
+      let state = createGameWithMeldCard(61, player1); // Meld Encyclopedia
+      
+      // Add cards to score pile - mix of ages
+      state = addCardsToScore(state, player1, [1, 16, 17, 3, 25]); // Agriculture (age 1), Calendar (age 2), Canal Building (age 2), City States (age 1), Road Building (age 2)
+      // Highest cards should be the 3 age 2 cards: Calendar, Canal Building, Road Building
+      
+      const dogmaResult = processDogmaAction(state, 61, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        prompt: 'You may meld all the highest cards in your score pile.'
+      });
+      
+      // Player 1 chooses to meld the highest cards
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should meld all 3 age 2 cards (highest age in score pile)
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 16 }) // Calendar
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 17 }) // Canal Building
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 25 }) // Road Building
+      );
+      // Should not meld the lower age cards (Agriculture, City States)
+      expect(choiceResult.events).not.toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 1 })
+      );
+      expect(choiceResult.events).not.toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 3 })
+      );
+    });
+
+    it('should decline to meld and complete without action', () => {
+      let state = createGameWithMeldCard(61, player1); // Meld Encyclopedia
+      
+      // Add cards to score pile
+      state = addCardsToScore(state, player1, [1, 16, 3]); // Mix of ages
+      
+      const dogmaResult = processDogmaAction(state, 61, player1);
+      
+      // Player 1 chooses not to meld
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not meld any cards
+      const meldedEvents = choiceResult.events.filter(e => e.type === 'melded');
+      expect(meldedEvents).toHaveLength(0);
+    });
+
+    it('should complete without choice if no score cards', () => {
+      let state = createGameWithMeldCard(61, player1); // Just Encyclopedia
+      
+      const dogmaResult = processDogmaAction(state, 61, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not offer any choices or perform any actions
+      const meldedEvents = dogmaResult.events.filter(e => e.type === 'melded');
+      expect(meldedEvents).toHaveLength(0);
+    });
+
+    it('should handle case where all score cards are the same age', () => {
+      let state = createGameWithMeldCard(61, player1); // Meld Encyclopedia
+      
+      // Add cards to score pile - all same age
+      state = addCardsToScore(state, player1, [1, 7, 3]); // All age 1 cards
+      
+      const dogmaResult = processDogmaAction(state, 61, player1);
+      
+      // Player 1 chooses to meld the highest cards
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      // Should meld all cards since they're all the highest age
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 1 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 7 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 3 })
+      );
+    });
+  });
 }); 

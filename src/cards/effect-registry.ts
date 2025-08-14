@@ -63,6 +63,7 @@ import {
   machineToolsEffect,
   canningEffect,
   classificationEffect,
+  encyclopediaEffect,
 } from './age6-effects.js';
 
 import {
@@ -147,6 +148,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Machine Tools': machineToolsEffect,
   'Canning': canningEffect,
   'Classification': classificationEffect,
+  'Encyclopedia': encyclopediaEffect,
 } as const;
 
 // Get effect function by card name

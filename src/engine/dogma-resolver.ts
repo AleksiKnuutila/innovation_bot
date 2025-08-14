@@ -336,6 +336,7 @@ function getInitialState(cardName: string): any {
     case 'Atomic Theory': return { step: 'check_splay_choice' };
     case 'Canning': return { step: 'check_draw_choice' };
     case 'Classification': return { step: 'check_hand' };
+    case 'Encyclopedia': return { step: 'check_score' };
       
     // Age 5 Cards
     case 'Coal':
