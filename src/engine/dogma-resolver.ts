@@ -334,6 +334,7 @@ function getInitialState(cardName: string): any {
     
     // Age 6 Cards
     case 'Atomic Theory': return { step: 'check_splay_choice' };
+    case 'Canning': return { step: 'check_draw_choice' };
       
     // Age 5 Cards
     case 'Coal':

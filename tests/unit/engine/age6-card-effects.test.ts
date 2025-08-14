@@ -216,4 +216,115 @@ describe('Age 6 Card Effects', () => {
       expect(scoredEvents).toHaveLength(0);
     });
   });
+
+  describe('Canning (ID 57)', () => {
+    it('should offer choice to draw/tuck 6, score cards without Factory, and splay yellow', () => {
+      let state = createGameWithMeldCard(57, player1); // Meld Canning (yellow)
+      
+      // Add another yellow card for splaying
+      state = addCardsToHand(state, player1, [16]); // Calendar (yellow) 
+      const canningStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (canningStack) {
+        canningStack.cards.push(16);
+      }
+      
+      // Add some cards to board (mix of Factory and non-Factory)
+      state = addCardsToHand(state, player1, [1, 55]); // Writing (no Factory), Steam Engine (has Factory)
+      const writingStack = {
+        color: 'Blue',
+        cards: [1], // Writing (top card without Factory)
+        splayDirection: undefined
+      };
+      const steamEngineStack = {
+        color: 'Purple', 
+        cards: [55], // Steam Engine (top card with Factory)
+        splayDirection: undefined
+      };
+      state.players[player1].colors.push(writingStack, steamEngineStack);
+      
+      const dogmaResult = processDogmaAction(state, 57, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        prompt: 'You may draw and tuck a 6.'
+      });
+      
+      // Test accepting the draw/tuck choice
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingChoice'); // Should offer splay choice next
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 6 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'tucked' })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored', cardIds: [1] }) // Writing scored (no Factory)
+      );
+      
+      // Now test the splay choice
+      const splayResult = resumeDogmaExecution(choiceResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(splayResult.nextPhase).toBe('AwaitingAction');
+      expect(splayResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Yellow', direction: 'right' })
+      );
+    });
+
+    it('should skip draw/tuck and scoring if player declines', () => {
+      let state = createGameWithMeldCard(57, player1); // Meld Canning
+      
+      // Add another yellow card for splaying
+      state = addCardsToHand(state, player1, [16]); // Calendar (yellow)
+      const canningStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (canningStack) {
+        canningStack.cards.push(16);
+      }
+      
+      const dogmaResult = processDogmaAction(state, 57, player1);
+      
+      // Test declining the draw/tuck choice
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingChoice'); // Should still offer splay choice
+      // Should not draw, tuck, or score
+      expect(choiceResult.events).not.toContainEqual(
+        expect.objectContaining({ type: 'drew' })
+      );
+      expect(choiceResult.events).not.toContainEqual(
+        expect.objectContaining({ type: 'tucked' })
+      );
+      expect(choiceResult.events).not.toContainEqual(
+        expect.objectContaining({ type: 'scored' })
+      );
+    });
+
+    it('should complete without splaying if no yellow cards to splay', () => {
+      let state = createGameWithMeldCard(57, player1); // Just Canning
+      
+      const dogmaResult = processDogmaAction(state, 57, player1);
+      
+      // Test declining the draw/tuck choice
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction'); // Should complete since no yellow to splay
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+    });
+  });
 }); 

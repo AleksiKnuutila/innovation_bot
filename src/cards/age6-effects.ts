@@ -3,7 +3,16 @@ import type { DogmaContext, EffectResult } from '../types/dogma.js';
 import type { ChoiceAnswer } from '../types/choices.js';
 import type { GameEvent } from '../types/events.js';
 import type { PlayerId } from '../types/index.js';
-import { drawAndMeld, splayColor, drawAndScore } from '../engine/state-manipulation.js';
+import { 
+  drawAndMeld, 
+  splayColor, 
+  drawAndScore, 
+  drawAndTuck, 
+  getTopCards,
+  moveCardBetweenZones,
+  hasIcon,
+  scoreCardsFromBoard
+} from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
 
@@ -147,4 +156,184 @@ export const machineToolsEffect = createSimpleEffect((context: DogmaContext) => 
   }
   
   return [newState, events];
-}); 
+});
+
+// Canning (ID 57) - Optional draw/tuck 6, score cards without Factory, optional splay yellow right
+interface CanningState {
+  step: 'check_draw_choice' | 'waiting_draw_choice' | 'check_splay_choice' | 'waiting_splay_choice';
+}
+
+export function canningEffect(
+  context: DogmaContext,
+  state: CanningState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_draw_choice': {
+      // Offer optional choice to draw and tuck a 6
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `canning_draw_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may draw and tuck a 6.',
+          source: 'canning_card_effect',
+          yesText: 'Draw and tuck a 6',
+          noText: 'Skip drawing'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_draw_choice'
+        }
+      };
+    }
+
+    case 'waiting_draw_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, proceed to splay choice
+        // Check if player has yellow cards to splay (with 2+ cards)
+        const yellowStack = newState.players[activatingPlayer]!.colors.find(
+          (stack: any) => stack.color === 'Yellow' && stack.cards.length > 1
+        );
+        
+        if (!yellowStack) {
+          // No eligible yellow cards, complete
+          return { type: 'complete', newState, events, effectType: 'non-demand' };
+        }
+
+        // Offer optional choice to splay yellow right
+        return {
+          type: 'need_choice',
+          newState,
+          events,
+          choice: {
+            id: `canning_splay_${activatingPlayer}`,
+            type: 'yes_no',
+            playerId: activatingPlayer,
+            prompt: 'You may splay your yellow cards right.',
+            source: 'canning_card_effect',
+            yesText: 'Splay yellow cards right',
+            noText: 'Skip splaying'
+          },
+          nextState: {
+            ...state,
+            step: 'waiting_splay_choice'
+          }
+        };
+      }
+
+      if (choiceAnswer.answer) {
+        // Player chose to draw and tuck a 6
+        newState = drawAndTuck(newState, activatingPlayer, 6, 1, events);
+        
+        // Score all top cards without Factory icons
+        const topCards = getTopCards(newState, activatingPlayer);
+        const cardsToScore: number[] = [];
+        
+        for (const cardId of topCards) {
+          const card = CARDS.cardsById.get(cardId);
+          if (card) {
+            // Check if this card has a Factory icon in any position
+            const hasFactoryIcon = Object.values(card.positions).includes('Factory');
+            if (!hasFactoryIcon) {
+              cardsToScore.push(cardId);
+            }
+          }
+        }
+        
+        // Score the cards without Factory icons using the primitive
+        newState = scoreCardsFromBoard(newState, activatingPlayer, cardsToScore, events);
+      }
+
+      // Now check for splay choice
+      // Check if player has yellow cards to splay (with 2+ cards)
+      const yellowStack = newState.players[activatingPlayer]!.colors.find(
+        (stack: any) => stack.color === 'Yellow' && stack.cards.length > 1
+      );
+      
+      if (!yellowStack) {
+        // No eligible yellow cards, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer optional choice to splay yellow right
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `canning_splay_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may splay your yellow cards right.',
+          source: 'canning_card_effect',
+          yesText: 'Splay yellow cards right',
+          noText: 'Skip splaying'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_splay_choice'
+        }
+      };
+    }
+
+    case 'check_splay_choice': {
+      // Check if player has yellow cards to splay (with 2+ cards)
+      const yellowStack = newState.players[activatingPlayer]!.colors.find(
+        (stack: any) => stack.color === 'Yellow' && stack.cards.length > 1
+      );
+      
+      if (!yellowStack) {
+        // No eligible yellow cards, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer optional choice to splay yellow right
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `canning_splay_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may splay your yellow cards right.',
+          source: 'canning_card_effect',
+          yesText: 'Splay yellow cards right',
+          noText: 'Skip splaying'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_splay_choice'
+        }
+      };
+    }
+
+    case 'waiting_splay_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      if (choiceAnswer.answer) {
+        // Player chose to splay yellow right
+        newState = splayColor(newState, activatingPlayer, 'Yellow', 'right', events);
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+} 

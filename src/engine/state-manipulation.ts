@@ -746,7 +746,7 @@ export function safeExecute<T>(
 
 /**
  * Draw a card from age X and immediately score it
- * Used in 25+ cards like Agriculture, Pottery, Optics, etc.
+ * Used in 20+ cards like Chemistry, Navigation, Fission, etc.
  */
 export function drawAndScore(
   gameData: GameData,
@@ -767,6 +767,49 @@ export function drawAndScore(
     
     // Score it immediately
     newState = scoreCard(newState, playerId, drawnCardId, events);
+  }
+  
+  return newState;
+}
+
+/**
+ * Score specific cards from the board to the score pile
+ * Used in cards like Canning that score cards based on criteria
+ */
+export function scoreCardsFromBoard(
+  gameData: GameData,
+  playerId: PlayerId,
+  cardIds: CardId[],
+  events: GameEvent[]
+): GameData {
+  const newState = deepClone(gameData);
+  const player = newState.players[playerId]!;
+  
+  for (const cardId of cardIds) {
+    // Find and remove from board
+    let found = false;
+    for (const colorStack of player.colors) {
+      const cardIndex = colorStack.cards.indexOf(cardId);
+      if (cardIndex !== -1) {
+        colorStack.cards.splice(cardIndex, 1);
+        found = true;
+        break;
+      }
+    }
+    
+    if (found) {
+      // Add to score pile
+      player.scores.push(cardId);
+      
+      // Emit scored event
+      const scoredEvent = emitEvent(newState, 'scored', {
+        playerId,
+        cardIds: [cardId],
+        pointsGained: 0, // Will be calculated later
+        fromZone: { playerId, zone: 'board' },
+      });
+      events.push(scoredEvent);
+    }
   }
   
   return newState;
