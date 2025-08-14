@@ -86,6 +86,7 @@ import {
   steamEngineEffect,
   bankingEffect,
   piratecodeEffect,
+  societiesEffect,
 } from './age5-effects.js';
 
 // Map card names to effect functions
@@ -147,6 +148,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Steam Engine': steamEngineEffect,
   'Banking': bankingEffect,
   'The Pirate Code': piratecodeEffect,
+  'Societies': societiesEffect,
   'Physics': physicsEffect,
   'Measurement': measurementEffect,
   'Astronomy': astronomyEffect,

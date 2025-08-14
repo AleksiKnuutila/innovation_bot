@@ -522,4 +522,121 @@ describe('Age 5 Card Effects', () => {
     });
   });
 
+  describe('Societies (ID 53)', () => {
+    it('should execute demand to transfer non-purple Lightbulb card from board', () => {
+      let state = createGameWithMeldCard(53, player1); // Meld Societies (purple)
+      
+      // Give activating player more Crown icons
+      // Societies has 1 Crown icon (left)
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [19], // Currency has 2 Crown icons (left, right)
+        splayDirection: 'right' // Now player1 has 3 total Crown icons
+      });
+      
+      // Give target player a non-purple card with Lightbulb icon on board
+      state.players[player2].colors.push({
+        color: 'Blue',
+        cards: [15], // Writing (blue, has Lightbulb icons)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 53, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 15 }) // Writing
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 5 })
+      );
+    });
+
+    it('should not transfer purple cards even if they have Lightbulb icons', () => {
+      let state = createGameWithMeldCard(53, player1); // Meld Societies
+      
+      // Give activating player more Crown icons
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [19], // Currency
+        splayDirection: 'right'
+      });
+      
+      // Give target player ONLY purple cards with Lightbulb icons
+      state.players[player2].colors.push({
+        color: 'Purple',
+        cards: [24], // Philosophy (purple, has Lightbulb icons)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 53, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should NOT transfer the purple card
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+      
+      // Should NOT draw since no transfer occurred
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+
+    it('should complete without transfer if no non-purple Lightbulb cards exist', () => {
+      let state = createGameWithMeldCard(53, player1); // Meld Societies
+      
+      // Give activating player more Crown icons
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [19], // Currency
+        splayDirection: 'right'
+      });
+      
+      // Give target player cards without Lightbulb icons
+      state.players[player2].colors.push({
+        color: 'Yellow',
+        cards: [1], // Agriculture (yellow, has only Leaf icons)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 53, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT transfer or draw
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+
+    it('should complete without demand if no players have fewer Crown icons', () => {
+      let state = createGameWithMeldCard(53, player1); // Meld Societies
+      
+      // Give both players equal Crown icons
+      // Societies has 1 Crown icon (left)
+      state.players[player2].colors.push({
+        color: 'Green',
+        cards: [4], // Clothing has 1 Crown icon (left)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 53, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT transfer or draw since no demand occurred
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+  });
+
 }); 

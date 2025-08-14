@@ -238,6 +238,49 @@ export const piratecodeEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Societies (ID 53) - Demand transfer non-purple Lightbulb from board, draw 5
+export const societiesEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Find players with fewer Crown icons than the activating player
+  const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
+  
+  // Execute demand effect for affected players
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerCrowns = countIcons(gameData, typedPlayerId, 'Crown');
+      if (playerCrowns < activatingPlayerCrowns) {
+        const player = newState.players[typedPlayerId]!;
+        
+        // Find top non-purple cards with Lightbulb icons
+        const validCards: CardId[] = [];
+        for (const colorStack of player.colors) {
+          if (colorStack.color !== 'Purple' && colorStack.cards.length > 0) {
+            const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
+            if (cardHasIcon(topCardId, 'Lightbulb')) {
+              validCards.push(topCardId);
+            }
+          }
+        }
+        
+        // Transfer the first valid card found
+        if (validCards.length > 0) {
+          const cardToTransfer = validCards[0]!;
+          newState = transferCard(newState, typedPlayerId, activatingPlayer, cardToTransfer, 'board', 'board', events);
+          
+          // Draw a 5 since transfer occurred
+          newState = drawCard(newState, typedPlayerId, 5, events);
+        }
+      }
+    }
+  }
+  
+  return [newState, events];
+});
+
 // TODO: Add other Age 5 effects here when moved from effect-handlers.ts
 // - physicsEffect
 // - measurementEffect
