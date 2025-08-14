@@ -281,6 +281,67 @@ export const societiesEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Statistics (ID 54) - Demand draw highest score card, repeat if 1 hand card, optional splay yellow
+export const statisticsEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Find players with fewer Leaf icons than the activating player
+  const activatingPlayerLeafs = countIcons(gameData, activatingPlayer, 'Leaf');
+  
+  // Execute demand effect for affected players with repeating logic
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerLeafs = countIcons(gameData, typedPlayerId, 'Leaf');
+      if (playerLeafs < activatingPlayerLeafs) {
+        let player = newState.players[typedPlayerId]!;
+        
+        // Repeat the demand while conditions are met
+        while (true) {
+          // Find highest card in score pile
+          if (player.scores.length === 0) {
+            break; // No cards to draw
+          }
+          
+          const highestCard = player.scores.reduce((highest, cardId) => {
+            const card = CARDS.cardsById.get(cardId);
+            const highestCardData = CARDS.cardsById.get(highest);
+            if (!card || !highestCardData) return highest;
+            return card.age > highestCardData.age ? cardId : highest;
+          });
+          
+          // Transfer highest card from score to hand
+          newState = transferCard(newState, typedPlayerId, typedPlayerId, highestCard, 'score', 'hand', events);
+          
+          // Update player reference after state change
+          player = newState.players[typedPlayerId]!;
+          
+          // Check if player has exactly 1 card in hand - if so, repeat
+          if (player.hands.length !== 1) {
+            break; // Don't repeat
+          }
+          
+          // Continue loop to repeat the demand
+        }
+      }
+    }
+  }
+  
+  // Non-demand effect: Optional splay yellow cards right
+  const yellowStack = newState.players[activatingPlayer]!.colors.find(
+    stack => stack.color === 'Yellow'
+  );
+  
+  if (yellowStack && yellowStack.cards.length >= 2) {
+    // Auto-splay for simplified implementation
+    newState = splayColor(newState, activatingPlayer, 'Yellow', 'right', events);
+  }
+  
+  return [newState, events];
+});
+
 // TODO: Add other Age 5 effects here when moved from effect-handlers.ts
 // - physicsEffect
 // - measurementEffect

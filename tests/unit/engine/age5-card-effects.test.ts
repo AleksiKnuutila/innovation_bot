@@ -639,4 +639,144 @@ describe('Age 5 Card Effects', () => {
     });
   });
 
+  describe('Statistics (ID 54)', () => {
+    it('should execute demand to draw highest score card and repeat if only 1 hand card', () => {
+      let state = createGameWithMeldCard(54, player1); // Meld Statistics (yellow)
+      
+      // Give activating player more Leaf icons
+      // Statistics has 2 Leaf icons (left, right)
+      state.players[player1].colors.push({
+        color: 'Yellow',
+        cards: [1], // Agriculture has 3 Leaf icons
+        splayDirection: 'right' // Now player1 has 5 total Leaf icons
+      });
+      
+      // Give target player fewer Leaf icons and score cards
+      state = addCardsToScore(state, player2, [16, 17, 49]); 
+      // Ages: 2(Calendar), 2(Canal Building), 5(Coal)
+      // Highest is Coal (age 5)
+      
+      // Give player2 exactly 0 cards in hand initially
+      state.players[player2].hands = [];
+      
+      const dogmaResult = processDogmaAction(state, 54, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should draw Coal (highest score card)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'transferred',
+          cardId: 49, // Coal
+          fromZone: expect.objectContaining({ zone: 'score' }),
+          toZone: expect.objectContaining({ zone: 'hand' })
+        })
+      );
+      
+      // Now player2 has exactly 1 card in hand, so demand should repeat
+      // Should draw next highest score card (Calendar, age 2 - lower ID wins tie)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'transferred',
+          cardId: 16, // Calendar (age 2, ID 16 vs Canal Building ID 17)
+          fromZone: expect.objectContaining({ zone: 'score' }),
+          toZone: expect.objectContaining({ zone: 'hand' })
+        })
+      );
+      
+      // Now player2 has 2 cards in hand, so no more repeats
+    });
+
+    it('should not repeat demand if player has more than 1 card in hand', () => {
+      let state = createGameWithMeldCard(54, player1); // Meld Statistics
+      
+      // Give activating player more Leaf icons
+      state.players[player1].colors.push({
+        color: 'Yellow',
+        cards: [1], // Agriculture
+        splayDirection: 'right'
+      });
+      
+      // Give target player score cards and existing hand cards
+      state = addCardsToScore(state, player2, [16, 17]); 
+      state.players[player2].hands = [1, 2]; // 2 cards in hand initially
+      
+      const dogmaResult = processDogmaAction(state, 54, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should draw one card (highest: Calendar since both are age 2 but Calendar has lower ID)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'transferred',
+          cardId: 16, // Calendar (age 2, lower ID)
+          fromZone: expect.objectContaining({ zone: 'score' }),
+          toZone: expect.objectContaining({ zone: 'hand' })
+        })
+      );
+      
+      // Should NOT repeat since player now has 3 cards in hand
+      const transferEvents = dogmaResult.events.filter(e => 
+        e.type === 'transferred' && e.fromZone?.zone === 'score'
+      );
+      expect(transferEvents).toHaveLength(1);
+    });
+
+    it('should complete without drawing if no score cards exist', () => {
+      let state = createGameWithMeldCard(54, player1); // Meld Statistics
+      
+      // Give activating player more Leaf icons
+      state.players[player1].colors.push({
+        color: 'Yellow',
+        cards: [1], // Agriculture
+        splayDirection: 'right'
+      });
+      
+      // Give target player NO score cards
+      state.players[player2].scores = [];
+      
+      const dogmaResult = processDogmaAction(state, 54, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT draw anything
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+    });
+
+    it('should auto-splay yellow cards right in non-demand effect', () => {
+      let state = createGameWithMeldCard(54, player1); // Meld Statistics
+      
+      // Add another yellow card for splaying
+      state.players[player1].colors[0]!.cards.push(1); // Add Agriculture (yellow)
+      
+      // Give both players equal Leaf icons so no demand occurs
+      // Statistics has 2 Leaf icons (left, right)
+      state.players[player2].colors.push({
+        color: 'Yellow',
+        cards: [1, 20], // Agriculture + Fermenting
+        splayDirection: 'right' // Match the Leaf icon count
+      });
+      
+      const dogmaResult = processDogmaAction(state, 54, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should auto-splay yellow cards right
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'splayed', 
+          color: 'Yellow', 
+          direction: 'right' 
+        })
+      );
+    });
+  });
+
 }); 

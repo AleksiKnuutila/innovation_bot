@@ -87,6 +87,7 @@ import {
   bankingEffect,
   piratecodeEffect,
   societiesEffect,
+  statisticsEffect,
 } from './age5-effects.js';
 
 // Map card names to effect functions
@@ -149,6 +150,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Banking': bankingEffect,
   'The Pirate Code': piratecodeEffect,
   'Societies': societiesEffect,
+  'Statistics': statisticsEffect,
   'Physics': physicsEffect,
   'Measurement': measurementEffect,
   'Astronomy': astronomyEffect,
