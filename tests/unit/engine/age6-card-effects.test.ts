@@ -647,4 +647,127 @@ describe('Age 6 Card Effects', () => {
       expect(tuckedEvents).toHaveLength(0);
     });
   });
+
+  describe('Metric System (ID 64)', () => {
+    it('should offer choice to splay any color if green cards are splayed right', () => {
+      let state = createGameWithMeldCard(64, player1); // Meld Metric System (green)
+      
+      // Add another green card and splay green right to meet condition
+      const metricSystemStack = state.players[player1].colors.find(stack => stack.color === 'Green');
+      if (metricSystemStack) {
+        metricSystemStack.cards.push(4); // Add Clothing (green)
+        metricSystemStack.splayDirection = 'right'; // Splay green right
+      }
+      
+      // Add other color stacks for splaying options
+      state.players[player1].colors.push({
+        color: 'Blue',
+        cards: [15, 16], // Writing, Calendar
+        splayDirection: undefined
+      });
+      state.players[player1].colors.push({
+        color: 'Red',
+        cards: [2, 18], // Archery, Construction
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 64, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'select_pile',
+        prompt: 'You may splay any color of your cards right.'
+      });
+      
+      // Player chooses to splay blue
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_pile',
+        choiceId: `metric_system_any_color_${player1}`,
+        playerId: player1,
+        selectedColor: 'Blue',
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction'); // Should complete since green already splayed right
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Blue', direction: 'right' })
+      );
+      // Should not offer green choice since green is already splayed right
+    });
+
+    it('should skip first choice if green cards not splayed right', () => {
+      let state = createGameWithMeldCard(64, player1); // Meld Metric System (green)
+      
+      // Add another green card but DON'T splay green right
+      const metricSystemStack = state.players[player1].colors.find(stack => stack.color === 'Green');
+      if (metricSystemStack) {
+        metricSystemStack.cards.push(4); // Add Clothing (green)
+        metricSystemStack.splayDirection = undefined; // Not splayed right
+      }
+      
+      const dogmaResult = processDogmaAction(state, 64, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        prompt: 'You may splay your green cards right.'
+      });
+      
+      // Player chooses to splay green right
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Green', direction: 'right' })
+      );
+    });
+
+    it('should complete if no green cards or only single green card', () => {
+      let state = createGameWithMeldCard(64, player1); // Just Metric System (single green card)
+      
+      const dogmaResult = processDogmaAction(state, 64, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not offer any choices or splay anything
+      const splayEvents = dogmaResult.events.filter(e => e.type === 'splayed');
+      expect(splayEvents).toHaveLength(0);
+    });
+
+    it('should decline both choices and complete', () => {
+      let state = createGameWithMeldCard(64, player1); // Meld Metric System (green)
+      
+      // Add another green card and splay green right to meet condition
+      const metricSystemStack = state.players[player1].colors.find(stack => stack.color === 'Green');
+      if (metricSystemStack) {
+        metricSystemStack.cards.push(4); // Add Clothing (green)
+        metricSystemStack.splayDirection = 'right'; // Splay green right
+      }
+      
+      // Add other color stacks for splaying options
+      state.players[player1].colors.push({
+        color: 'Blue',
+        cards: [15, 16], // Writing, Calendar
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 64, player1);
+      
+      // Decline first choice (splay any color)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, undefined);
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not splay anything since choice was declined and green already splayed right
+      const splayEvents = choiceResult.events.filter(e => e.type === 'splayed');
+      expect(splayEvents).toHaveLength(0);
+    });
+  });
 }); 

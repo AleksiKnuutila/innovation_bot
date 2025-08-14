@@ -65,6 +65,7 @@ import {
   classificationEffect,
   encyclopediaEffect,
   industrializationEffect,
+  metricSystemEffect,
 } from './age6-effects.js';
 
 import {
@@ -151,6 +152,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Classification': classificationEffect,
   'Encyclopedia': encyclopediaEffect,
   'Industrialization': industrializationEffect,
+  'Metric System': metricSystemEffect,
 } as const;
 
 // Get effect function by card name

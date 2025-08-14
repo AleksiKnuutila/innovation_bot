@@ -695,3 +695,140 @@ export function industrializationEffect(
       throw new Error(`Unknown step: ${(state as any).step}`);
   }
 } 
+
+// Metric System (ID 64) - Conditional splay any color, optional splay green right
+interface MetricSystemState {
+  step: 'check_green_condition' | 'waiting_any_color_choice' | 'waiting_green_choice';
+}
+
+export function metricSystemEffect(
+  context: DogmaContext,
+  state: MetricSystemState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_green_condition': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      // Check if green cards are splayed right
+      const greenStack = player.colors.find(
+        stack => stack.color === 'Green' && stack.splayDirection === 'right'
+      );
+      
+      if (greenStack) {
+        // Green cards are splayed right, offer choice to splay any color
+        // Find available color stacks with 2+ cards that can be splayed
+        const availableColors: string[] = [];
+        for (const colorStack of player.colors) {
+          if (colorStack.cards.length > 1) {
+            availableColors.push(colorStack.color);
+          }
+        }
+        
+        if (availableColors.length === 0) {
+          // No stacks available for splaying, skip to green choice
+          return checkGreenChoiceInternal(newState, events, activatingPlayer);
+        }
+        
+        // Offer choice to splay any color right
+        return {
+          type: 'need_choice',
+          newState,
+          events,
+          choice: {
+            id: `metric_system_any_color_${activatingPlayer}`,
+            type: 'select_pile',
+            playerId: activatingPlayer,
+            prompt: 'You may splay any color of your cards right.',
+            source: 'metric_system_card_effect',
+            availableColors: availableColors as any,
+            operation: 'splay right'
+          },
+          nextState: {
+            ...state,
+            step: 'waiting_any_color_choice'
+          }
+        };
+      } else {
+        // Green cards not splayed right, skip to green choice
+        return checkGreenChoiceInternal(newState, events, activatingPlayer);
+      }
+    }
+
+    case 'waiting_any_color_choice': {
+      if (choiceAnswer && choiceAnswer.type === 'select_pile' && choiceAnswer.selectedColor) {
+        // Player chose to splay a color
+        const selectedColor = choiceAnswer.selectedColor;
+        newState = splayColor(newState, activatingPlayer, selectedColor, 'right', events);
+      }
+      
+      // Now proceed to green choice
+      return checkGreenChoiceInternal(newState, events, activatingPlayer);
+    }
+
+    case 'waiting_green_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      if (choiceAnswer.answer) {
+        // Player chose to splay green right
+        newState = splayColor(newState, activatingPlayer, 'Green', 'right', events);
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Helper method for checking green choice internally
+function checkGreenChoiceInternal(
+  newState: any,
+  events: GameEvent[],
+  activatingPlayer: PlayerId
+): EffectResult {
+  const player = newState.players[activatingPlayer]!;
+  
+  // Check if green cards can be splayed right (2+ cards and not already splayed right)
+  const greenStack = player.colors.find((stack: any) => stack.color === 'Green');
+  
+  if (!greenStack || greenStack.cards.length < 2) {
+    // No green stack or single card, complete
+    return { type: 'complete', newState, events, effectType: 'non-demand' };
+  }
+  
+  if (greenStack.splayDirection === 'right') {
+    // Already splayed right, complete
+    return { type: 'complete', newState, events, effectType: 'non-demand' };
+  }
+  
+  // Offer choice to splay green right
+  return {
+    type: 'need_choice',
+    newState,
+    events,
+    choice: {
+      id: `metric_system_green_${activatingPlayer}`,
+      type: 'yes_no',
+      playerId: activatingPlayer,
+      prompt: 'You may splay your green cards right.',
+      source: 'metric_system_card_effect',
+      yesText: 'Splay green cards right',
+      noText: 'Skip splaying green'
+    },
+    nextState: {
+      step: 'waiting_green_choice'
+    }
+  };
+} 
