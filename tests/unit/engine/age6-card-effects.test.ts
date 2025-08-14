@@ -1057,4 +1057,135 @@ describe('Age 6 Card Effects', () => {
       expect(splayEvents).toHaveLength(0);
     });
   });
+
+  describe('Vaccination (ID 65)', () => {
+    it('should demand return lowest score cards and draw/meld if returned', () => {
+      let state = createGameWithMeldCard(65, player1); // Meld Vaccination (Leaf icons)
+      
+      // Add Leaf icons to player 1 and splay to make them visible
+      const vaccinationStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (vaccinationStack) {
+        vaccinationStack.cards.push(1); // Add Agriculture (Leaf icons)
+        vaccinationStack.splayDirection = 'right'; // Splay to make Leaf icons visible
+      }
+      
+      // Add cards to player 2's score pile (target of demand) with no Leaf icons on board
+      state = addCardsToScore(state, player2, [1, 16, 17, 3]); // Ages 1, 2, 2, 1 (lowest = age 1)
+      
+      const dogmaResult = processDogmaAction(state, 65, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction'); // Demand is mandatory, no choice
+      
+      // Should have returned the lowest cards (Agriculture ID 1 and City States ID 3, both age 1)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 1 }) // Agriculture
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 3 }) // City States
+      );
+      
+      // Should draw and meld a 6 (activating player effect)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 6, playerId: player2 })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', playerId: player2 })
+      );
+      
+      // Should draw and meld a 7 (non-demand effect)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 7, playerId: player1 })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', playerId: player1 })
+      );
+    });
+
+    it('should complete without actions if no one affected by demand', () => {
+      let state = createGameWithMeldCard(65, player1); // Meld Vaccination
+      
+      // Give player 2 equal or more Leaf icons (not affected by demand)
+      state.players[player2].colors.push({
+        color: 'Green',
+        cards: [65, 1], // Vaccination, Agriculture (lots of Leaf icons)
+        splayDirection: 'right'
+      });
+      
+      // Clear score piles (no one has cards to return)
+      state.players[player1].scores = [];
+      state.players[player2].scores = [];
+      
+      const dogmaResult = processDogmaAction(state, 65, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not return, draw, or meld anything
+      const returnEvents = dogmaResult.events.filter(e => e.type === 'returned');
+      expect(returnEvents).toHaveLength(0);
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+
+    it('should complete if affected player has no score cards', () => {
+      let state = createGameWithMeldCard(65, player1); // Meld Vaccination
+      
+      // Add Leaf icons to player 1
+      const vaccinationStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (vaccinationStack) {
+        vaccinationStack.cards.push(1); // Add Agriculture
+        vaccinationStack.splayDirection = 'right';
+      }
+      
+      // Player 2 has no score cards
+      state.players[player2].scores = [];
+      
+      const dogmaResult = processDogmaAction(state, 65, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not return, draw, or meld anything
+      const returnEvents = dogmaResult.events.filter(e => e.type === 'returned');
+      expect(returnEvents).toHaveLength(0);
+    });
+
+    it('should only draw/meld 7 if cards were returned by demand', () => {
+      let state = createGameWithMeldCard(65, player1); // Meld Vaccination
+      
+      // Add Leaf icons to player 1
+      const vaccinationStack = state.players[player1].colors.find(stack => stack.color === 'Yellow');
+      if (vaccinationStack) {
+        vaccinationStack.cards.push(1); // Add Agriculture
+        vaccinationStack.splayDirection = 'right';
+      }
+      
+      // Add only highest-age cards to player 2's score pile
+      state = addCardsToScore(state, player2, [16, 17]); // Both age 2 (no lower cards)
+      
+      const dogmaResult = processDogmaAction(state, 65, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should return the age 2 cards (they are the lowest available)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 16 })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 17 })
+      );
+      
+      // Should draw and meld a 6 for player 2 (demand target)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 6, playerId: player2 })
+      );
+      
+      // Should draw and meld a 7 for player 1 (non-demand effect)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 7, playerId: player1 })
+      );
+    });
+  });
 }); 

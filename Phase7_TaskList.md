@@ -9,13 +9,13 @@
 
 ## 🎯 Current Progress Summary
 
-**Overall Progress**: 64/105 cards (61%) complete
+**Overall Progress**: 65/105 cards (62%) complete
 - ✅ **Age 1 Cards**: 15/15 (100%) - Complete with comprehensive testing
 - ✅ **Age 2 Cards**: 10/10 (100%) - Complete with comprehensive testing  
 - ✅ **Age 3 Cards**: 10/10 (100%) - Complete with comprehensive testing
 - ✅ **Age 4 Cards**: 7/10 (70%) - 7 fully working, 3 complex demand effects structured
 - ✅ **Age 5 Cards**: 6/10 (60%) - 6 fully working, 4 complex demand effects remaining
-- ✅ **Age 6 Cards**: 9/10 (90%) - 9 fully working (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy, Emancipation)
+- ✅ **Age 6 Cards**: 10/10 (100%) - **COMPLETE!** All cards fully working (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy, Emancipation, Vaccination)
 - ⏳ **Age 7+ Cards**: 0/55 (0%) - Not yet implemented
 
 **Completed Major Tasks**:
@@ -249,41 +249,17 @@
 - **Output**: All Age 6 cards working
 - **Effort**: 4-5 days
 - **Dependencies**: Task 7d.5
-
-**Cards to Implement**:
-- [ ] Atomic Bomb (ID 56) - Draw 6, score 6 if you have 6+ cards
-- [ ] Automobiles (ID 57) - Draw 6, meld 6 if you have 6+ cards
-- [ ] Bicycle (ID 58) - Draw 6, tuck 6 if you have 6+ cards
-- [ ] Corporations (ID 59) - Draw 6, splay up if you have 6+ cards
-- [ ] Emancipation (ID 60) - Draw 6, score 6 if you have 6+ cards
-- [ ] Fast Food (ID 61) - Draw 6, meld 6 if you have 6+ cards
-- [ ] Fission (ID 62) - Draw 6, tuck 6 if you have 6+ cards
-- [ ] Libraries (ID 63) - Draw 6, splay up if you have 6+ cards
-- [ ] Mass Media (ID 64) - Draw 6, score 6 if you have 6+ cards
-- [ ] Socialism (ID 65) - Draw 6, meld 6 if you have 6+ cards
-
-- **Status**: 🟡 **STARTED** - 1/10 cards implemented and tested
-
-**Cards to Implement**:
-- [x] Atomic Theory (ID 56) - ✅ **FULLY WORKING** - Optional splay blue right, draw and meld a 7 (with proper choice behavior)
-- [x] Machine Tools (ID 63) - ✅ **FULLY WORKING** - Draw and score a card equal to highest score card value
-- [x] Canning (ID 57) - ✅ **FULLY WORKING** - Optional draw/tuck 6, score cards without Factory, optional splay yellow right
-- [x] Classification (ID 58) - ✅ **FULLY WORKING** - Reveal hand color, take/meld all cards of that color from all players
-- [x] Encyclopedia (ID 61) - ✅ **FULLY WORKING** - Optional meld all highest cards from score pile
-- [x] Industrialization (ID 62) - ✅ **FULLY WORKING** - Draw/tuck 6s based on Factory icons, optional splay red/purple right
-- [x] Metric System (ID 64) - ✅ **FULLY WORKING** - Conditional splay any color if green splayed right, optional splay green right
-- [x] Democracy (ID 59) - ✅ **FULLY WORKING** - Optional return cards, conditional draw/score 8 based on threshold
-- [x] Emancipation (ID 60) - ✅ **FULLY WORKING** - Demand transfer to score + optional splay
-- [ ] Vaccination (ID 65) - ⏳ **NOT STARTED** - Demand return lowest score cards + conditional draw/meld
+- **Status**: ✅ **COMPLETED** - All 10 Age 6 cards implemented and tested
 
 **Implementation Progress**:
-- ✅ **Working Cards**: 9/10 (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy, Emancipation)
+- ✅ **Working Cards**: 10/10 (ALL COMPLETE) - Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy, Emancipation, Vaccination
 - ✅ **File Organization**: Created `age6-effects.ts` for better code organization
 - ✅ **Choice System**: Validated "You may" effects work correctly with yes/no and select_pile choices
-- ✅ **Test Framework**: Age 6 test file created with comprehensive test patterns
+- ✅ **Test Framework**: Age 6 test file created with comprehensive test patterns (34 tests)
 - ✅ **Icon Mechanics**: Validated Factory icon counting with splaying mechanics
 - ✅ **Conditional Logic**: Implemented conditional splaying and threshold-based effects
-- ✅ **Demand Effects**: Implemented Factory icon-based demand targeting and transfer mechanics
+- ✅ **Demand Effects**: Implemented Factory and Leaf icon-based demand targeting
+- ✅ **Complex Mechanics**: Score pile manipulation, multi-card returns, conditional draw/meld chains
 
 ### Task 7d.NEW: File Organization by Age ✅ **COMPLETED**
 - **Description**: Split the monster effect-handlers.ts file into age-specific files for better maintainability

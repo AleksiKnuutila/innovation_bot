@@ -68,6 +68,7 @@ import {
   metricSystemEffect,
   democracyEffect,
   emancipationEffect,
+  vaccinationEffect,
 } from './age6-effects.js';
 
 import {
@@ -157,6 +158,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Metric System': metricSystemEffect,
   'Democracy': democracyEffect,
   'Emancipation': emancipationEffect,
+  'Vaccination': vaccinationEffect,
 } as const;
 
 // Get effect function by card name

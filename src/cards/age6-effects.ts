@@ -1090,3 +1090,88 @@ function checkSplayChoiceInternal(
     }
   };
 } 
+
+// Vaccination (ID 65) - Demand return all lowest score cards, conditional draw/meld 6 and 7
+export const vaccinationEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  
+  // Find players with fewer Leaf icons (demand effect)
+  const activatingPlayerLeaves = countIcons(gameData, activatingPlayer, 'Leaf');
+  let anyCardsReturned = false;
+  
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerLeaves = countIcons(gameData, typedPlayerId, 'Leaf');
+      if (playerLeaves < activatingPlayerLeaves) {
+        // This player is affected by the demand
+        const player = newState.players[typedPlayerId]!;
+        
+        if (player.scores.length > 0) {
+          // Find the lowest age among score cards
+          let lowestAge = Infinity;
+          for (const cardId of player.scores) {
+            const card = CARDS.cardsById.get(cardId);
+            if (card && card.age < lowestAge) {
+              lowestAge = card.age;
+            }
+          }
+          
+          // Find all cards with the lowest age
+          const lowestCards: number[] = [];
+          for (const cardId of player.scores) {
+            const card = CARDS.cardsById.get(cardId);
+            if (card && card.age === lowestAge) {
+              lowestCards.push(cardId);
+            }
+          }
+          
+          // Return all lowest cards
+          for (const cardId of lowestCards) {
+            const card = CARDS.cardsById.get(cardId);
+            if (!card) {
+              throw new Error(`Card ${cardId} not found in database`);
+            }
+            
+            // Remove from score pile
+            const scoreIndex = player.scores.indexOf(cardId);
+            if (scoreIndex !== -1) {
+              player.scores.splice(scoreIndex, 1);
+              
+              // Add back to supply pile
+              const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+              if (supplyPile) {
+                supplyPile.cards.push(cardId);
+              }
+              
+              // Emit return event
+              const returnEvent = emitEvent(newState, 'returned', {
+                playerId: typedPlayerId,
+                cardId,
+                fromZone: { playerId: typedPlayerId, zone: 'score' },
+                toAge: card.age,
+              });
+              events.push(returnEvent);
+              
+              anyCardsReturned = true;
+            }
+          }
+          
+          // If any cards were returned, draw and meld a 6
+          if (lowestCards.length > 0) {
+            newState = drawAndMeld(newState, typedPlayerId, 6, 1, events);
+          }
+        }
+      }
+    }
+  }
+  
+  // If any card was returned as a result of the demand, draw and meld a 7
+  if (anyCardsReturned) {
+    newState = drawAndMeld(newState, activatingPlayer, 7, 1, events);
+  }
+  
+  return [newState, events];
+}); 
