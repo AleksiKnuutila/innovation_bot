@@ -14,7 +14,8 @@ import {
   scoreCardsFromBoard,
   revealCard,
   transferCard,
-  meldCard
+  meldCard,
+  countIcons
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -586,6 +587,105 @@ export function encyclopediaEffect(
           });
           events.push(meldedEvent);
         }
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Industrialization (ID 62) - Draw/tuck 6s based on Factory icons, optional splay red/purple right
+interface IndustrializationState {
+  step: 'draw_tuck_phase' | 'check_splay_choice' | 'waiting_splay_choice';
+}
+
+export function industrializationEffect(
+  context: DogmaContext,
+  state: IndustrializationState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'draw_tuck_phase': {
+      // Count Factory icons on the board
+      const factoryCount = countIcons(newState, activatingPlayer, 'Factory');
+      const drawTuckCount = Math.floor(factoryCount / 2);
+      
+      // Draw and tuck 6s for every two Factory icons
+      for (let i = 0; i < drawTuckCount; i++) {
+        newState = drawAndTuck(newState, activatingPlayer, 6, 1, events);
+      }
+
+      // Now check for splay choice
+      // Check if player has red or purple cards to splay (with 2+ cards)
+      const redStack = newState.players[activatingPlayer]!.colors.find(
+        (stack: any) => stack.color === 'Red' && stack.cards.length > 1
+      );
+      const purpleStack = newState.players[activatingPlayer]!.colors.find(
+        (stack: any) => stack.color === 'Purple' && stack.cards.length > 1
+      );
+      
+      if (!redStack && !purpleStack) {
+        // No eligible red or purple cards, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer optional choice to splay red or purple right
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `industrialization_splay_${activatingPlayer}`,
+          type: 'yes_no',
+          playerId: activatingPlayer,
+          prompt: 'You may splay your red or purple cards right.',
+          source: 'industrialization_card_effect',
+          yesText: 'Splay red or purple cards right',
+          noText: 'Skip splaying'
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_splay_choice'
+        }
+      };
+    }
+
+    case 'waiting_splay_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      if (!choiceAnswer.answer) {
+        // Player chose not to splay, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Player chose to splay - splay both red and purple if available
+      const player = newState.players[activatingPlayer]!;
+      
+      const redStack = player.colors.find(
+        (stack: any) => stack.color === 'Red' && stack.cards.length > 1
+      );
+      if (redStack) {
+        newState = splayColor(newState, activatingPlayer, 'Red', 'right', events);
+      }
+      
+      const purpleStack = player.colors.find(
+        (stack: any) => stack.color === 'Purple' && stack.cards.length > 1
+      );
+      if (purpleStack) {
+        newState = splayColor(newState, activatingPlayer, 'Purple', 'right', events);
       }
 
       return { type: 'complete', newState, events, effectType: 'non-demand' };

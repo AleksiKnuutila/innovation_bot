@@ -548,4 +548,103 @@ describe('Age 6 Card Effects', () => {
       );
     });
   });
+
+  describe('Industrialization (ID 62)', () => {
+    it('should draw and tuck 6s based on Factory icons and offer splay choice', () => {
+      let state = createGameWithMeldCard(62, player1); // Meld Industrialization (red, 2 Factory icons)
+      
+      // Add another red card with Factory icons to the same stack
+      const industrializationStack = state.players[player1].colors.find(stack => stack.color === 'Red');
+      if (industrializationStack) {
+        // Add Machine Tools (red, 2 Factory) to red stack
+        industrializationStack.cards.push(63); // Machine Tools has 2 Factory icons
+        // Splay the red stack right to make Factory icons visible
+        industrializationStack.splayDirection = 'right';
+      }
+      
+      // Create a separate purple stack for splaying option
+      state.players[player1].colors.push({
+        color: 'Purple',
+        cards: [60], // Emancipation (purple)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 62, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        prompt: 'You may splay your red or purple cards right.'
+      });
+      
+      // Should have drawn and tucked 6s first (4 Factory icons from splayed red stack = 2 draw/tuck)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew' && e.fromAge === 6);
+      expect(drewEvents).toHaveLength(2); // 4 Factory icons / 2 = 2 draws
+      const tuckedEvents = dogmaResult.events.filter(e => e.type === 'tucked');
+      expect(tuckedEvents).toHaveLength(2); // Same number of tucks
+      
+      // Player chooses to splay
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      // Should have splayed purple cards right (red already splayed)
+      const splayEvents = choiceResult.events.filter(e => e.type === 'splayed');
+      expect(splayEvents).toHaveLength(1); // Only purple splayed (red already splayed)
+    });
+
+    it('should complete without splay choice if no red or purple cards', () => {
+      let state = createGameWithMeldCard(62, player1); // Meld Industrialization (red, 2 Factory icons)
+      
+      // Remove the red stack and create blue/yellow stacks instead
+      state.players[player1].colors = []; // Clear all color stacks
+      
+      // Create a blue stack with Factory icons for drawing/tucking
+      state.players[player1].colors.push({
+        color: 'Blue',
+        cards: [62, 63], // Industrialization (red, Factory) + Machine Tools (red, Factory) treated as blue
+        splayDirection: 'right' // Splay to make Factory icons visible
+      });
+      
+      // Create a yellow stack with Factory icons for drawing/tucking
+      state.players[player1].colors.push({
+        color: 'Yellow',
+        cards: [55], // Steam Engine (yellow, 2 Factory) - single card so no Factory icons visible
+        splayDirection: undefined // Single card can't be splayed
+      });
+      
+      const dogmaResult = processDogmaAction(state, 62, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should have drawn and tucked (4 Factory from splayed blue stack = 2 draw/tuck)
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew' && e.fromAge === 6);
+      expect(drewEvents).toHaveLength(2); // 4 Factory icons / 2 = 2 draws
+      const tuckedEvents = dogmaResult.events.filter(e => e.type === 'tucked');
+      expect(tuckedEvents).toHaveLength(2);
+    });
+
+    it('should complete without action if no Factory icons', () => {
+      let state = createGameWithMeldCard(62, player1); // Just Industrialization
+      
+      const dogmaResult = processDogmaAction(state, 62, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not draw or tuck anything (only Industrialization's 1 Factory icon isn't enough for 2)
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+      const tuckedEvents = dogmaResult.events.filter(e => e.type === 'tucked');
+      expect(tuckedEvents).toHaveLength(0);
+    });
+  });
 }); 

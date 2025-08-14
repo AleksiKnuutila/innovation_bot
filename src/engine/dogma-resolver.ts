@@ -337,6 +337,7 @@ function getInitialState(cardName: string): any {
     case 'Canning': return { step: 'check_draw_choice' };
     case 'Classification': return { step: 'check_hand' };
     case 'Encyclopedia': return { step: 'check_score' };
+    case 'Industrialization': return { step: 'draw_tuck_phase' };
       
     // Age 5 Cards
     case 'Coal':
