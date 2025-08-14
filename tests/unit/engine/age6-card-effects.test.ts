@@ -364,10 +364,10 @@ describe('Age 6 Card Effects', () => {
       );
       // Should transfer blue cards from player 2 to player 1
       expect(choiceResult.events).toContainEqual(
-        expect.objectContaining({ type: 'transferred', cardId: 44, toPlayer: 0 })
+        expect.objectContaining({ type: 'transferred', cardId: 44, toPlayer: player1 })
       );
       expect(choiceResult.events).toContainEqual(
-        expect.objectContaining({ type: 'transferred', cardId: 48, toPlayer: 0 })
+        expect.objectContaining({ type: 'transferred', cardId: 48, toPlayer: player1 })
       );
       // Should meld all blue cards from player 1's hand
       expect(choiceResult.events).toContainEqual(
@@ -888,6 +888,173 @@ describe('Age 6 Card Effects', () => {
       expect(returnEvents).toHaveLength(0);
       const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
       expect(drewEvents).toHaveLength(0);
+    });
+  });
+
+  describe('Emancipation (ID 60)', () => {
+    it('should demand card transfer and offer splay choice', () => {
+      let state = createGameWithMeldCard(60, player1); // Meld Emancipation (gives player 1 Factory icons)
+      
+      // Add another Factory card to player 1 and splay to make icons visible
+      const emancipationStack = state.players[player1].colors.find(stack => stack.color === 'Purple');
+      if (emancipationStack) {
+        emancipationStack.cards.push(55); // Add Steam Engine (Factory icons)
+        emancipationStack.splayDirection = 'right'; // Splay to make Factory icons visible
+      }
+      
+      // Add cards to player 2's hand (target of demand) but no Factory cards
+      state = addCardsToHand(state, player2, [1, 2, 3]); // No Factory icons for player 2
+      
+      // Add red cards to player 1 for splaying option
+      state.players[player1].colors.push({
+        color: 'Red',
+        cards: [2, 18], // Archery, Construction
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 60, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'select_cards',
+        prompt: 'I demand you transfer a card from your hand to my score pile!',
+        playerId: player2, // Demand targets player 2
+        from: { zone: 'hand', playerId: player2 },
+        minCards: 1,
+        maxCards: 1
+      });
+      
+      // Player 2 transfers a card
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `emancipation_transfer_${player2}`,
+        playerId: player2,
+        selectedCards: [1], // Transfer Agriculture
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingChoice'); // Should offer splay choice
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'transferred', 
+          cardId: 1, 
+          toPlayer: player1,
+          toZone: { zone: 'score', playerId: player1 }
+        })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 6 })
+      );
+      
+      // Now test the splay choice
+      const splayResult = resumeDogmaExecution(choiceResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(splayResult.nextPhase).toBe('AwaitingAction');
+      expect(splayResult.events).toContainEqual(
+        expect.objectContaining({ type: 'splayed', color: 'Red', direction: 'right' })
+      );
+    });
+
+    it('should complete without splay if no red or purple cards', () => {
+      let state = createGameWithMeldCard(60, player1); // Meld Emancipation
+      
+      // Create a different color stack for Factory icons instead of purple
+      state.players[player1].colors = []; // Clear existing colors
+      state.players[player1].colors.push({
+        color: 'Yellow',
+        cards: [60, 55], // Emancipation (treated as yellow), Steam Engine
+        splayDirection: 'right' // Splay to make Factory icons visible
+      });
+      
+      // Add cards to player 2's hand but no Factory cards
+      state = addCardsToHand(state, player2, [1, 2]);
+      
+      // No red or purple cards for player 1 (using yellow instead)
+      
+      const dogmaResult = processDogmaAction(state, 60, player1);
+      
+      // Player 2 transfers a card
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `emancipation_transfer_${player2}`,
+        playerId: player2,
+        selectedCards: [1],
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction'); // Should complete
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 1 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 6 })
+      );
+      // Should not offer splay choice
+    });
+
+    it('should complete if no one affected by demand', () => {
+      let state = createGameWithMeldCard(60, player1); // Meld Emancipation
+      
+      // Clear all hands (no one affected by demand)
+      state.players[player1].hands = [];
+      state.players[player2].hands = [];
+      
+      const dogmaResult = processDogmaAction(state, 60, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not transfer or draw anything
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+
+    it('should decline splay choice and complete', () => {
+      let state = createGameWithMeldCard(60, player1); // Meld Emancipation
+      
+      // Add another Factory card to player 1 and splay to make icons visible
+      const emancipationStack = state.players[player1].colors.find(stack => stack.color === 'Purple');
+      if (emancipationStack) {
+        emancipationStack.cards.push(55); // Add Steam Engine (Factory icons)
+        emancipationStack.splayDirection = 'right'; // Splay to make Factory icons visible
+      }
+      
+      // Add cards to player 2's hand
+      state = addCardsToHand(state, player2, [1]);
+      
+      // Add more purple cards to player 1 for splaying option (in addition to existing purple stack)
+      // Note: the existing purple stack already has 2+ cards now
+      
+      const dogmaResult = processDogmaAction(state, 60, player1);
+      
+      // Player 2 transfers a card
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `emancipation_transfer_${player2}`,
+        playerId: player2,
+        selectedCards: [1],
+        timestamp: Date.now()
+      });
+      
+      // Decline splay choice
+      const splayResult = resumeDogmaExecution(choiceResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(splayResult.nextPhase).toBe('AwaitingAction');
+      expect(splayResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not splay anything
+      const splayEvents = splayResult.events.filter(e => e.type === 'splayed');
+      expect(splayEvents).toHaveLength(0);
     });
   });
 }); 

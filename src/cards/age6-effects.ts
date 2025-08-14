@@ -16,7 +16,8 @@ import {
   transferCard,
   meldCard,
   countIcons,
-  returnCard
+  returnCard,
+  drawCard
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -922,4 +923,170 @@ export function democracyEffect(
     default:
       throw new Error(`Unknown step: ${(state as any).step}`);
   }
+} 
+
+// Emancipation (ID 60) - Demand transfer card to score, optional splay red/purple right
+interface EmancipationState {
+  step: 'execute_demand' | 'waiting_transfer_choice' | 'check_splay_choice' | 'waiting_splay_choice';
+  affectedPlayers?: PlayerId[];
+  currentPlayerIndex?: number;
+  cardTransferred?: boolean;
+}
+
+export function emancipationEffect(
+  context: DogmaContext,
+  state: EmancipationState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'execute_demand': {
+      // Find players with fewer Factory icons (demand effect)
+      const activatingPlayerFactories = countIcons(gameData, activatingPlayer, 'Factory');
+      const affectedPlayers: PlayerId[] = [];
+      
+      for (let playerId = 0; playerId < 2; playerId++) {
+        const typedPlayerId = playerId as PlayerId;
+        if (typedPlayerId !== activatingPlayer) {
+          const playerFactories = countIcons(gameData, typedPlayerId, 'Factory');
+          if (playerFactories < activatingPlayerFactories) {
+            affectedPlayers.push(typedPlayerId);
+          }
+        }
+      }
+      
+      if (affectedPlayers.length === 0) {
+        // No one affected by demand, proceed to splay choice
+        return checkSplayChoiceInternal(newState, events, activatingPlayer, false);
+      }
+      
+      // Start with first affected player
+      const targetPlayer = affectedPlayers[0]!;
+      const hasCards = gameData.players[targetPlayer]!.hands.length > 0;
+      
+      if (!hasCards) {
+        // Player has no cards to transfer, proceed to splay choice
+        return checkSplayChoiceInternal(newState, events, activatingPlayer, false);
+      }
+      
+      // Request card transfer from target player
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `emancipation_transfer_${targetPlayer}`,
+          type: 'select_cards',
+          playerId: targetPlayer,
+          prompt: 'I demand you transfer a card from your hand to my score pile!',
+          source: 'emancipation_card_effect',
+          from: { zone: 'hand', playerId: targetPlayer },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_transfer_choice',
+          affectedPlayers,
+          currentPlayerIndex: 0,
+          cardTransferred: false
+        }
+      };
+    }
+
+    case 'waiting_transfer_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        // No card transferred, proceed to splay choice
+        return checkSplayChoiceInternal(newState, events, activatingPlayer, false);
+      }
+
+      const transferredCardId = choiceAnswer.selectedCards[0]!;
+      const targetPlayer = state.affectedPlayers![0]!;
+      
+      // Transfer card from target player's hand to activating player's score pile
+      newState = transferCard(newState, targetPlayer, activatingPlayer, transferredCardId, 'hand', 'score', events);
+      
+      // Since a card was transferred, draw a 6
+      newState = drawCard(newState, activatingPlayer, 6, events);
+      
+      // Proceed to splay choice
+      return checkSplayChoiceInternal(newState, events, activatingPlayer, true);
+    }
+
+    case 'waiting_splay_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'yes_no') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'demand' };
+      }
+
+      if (choiceAnswer.answer) {
+        // Player chose to splay - splay both red and purple if available
+        const player = newState.players[activatingPlayer]!;
+        
+        const redStack = player.colors.find(
+          (stack: any) => stack.color === 'Red' && stack.cards.length > 1
+        );
+        if (redStack) {
+          newState = splayColor(newState, activatingPlayer, 'Red', 'right', events);
+        }
+        
+        const purpleStack = player.colors.find(
+          (stack: any) => stack.color === 'Purple' && stack.cards.length > 1
+        );
+        if (purpleStack) {
+          newState = splayColor(newState, activatingPlayer, 'Purple', 'right', events);
+        }
+      }
+
+      return { type: 'complete', newState, events, effectType: 'demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Helper function for checking splay choice
+function checkSplayChoiceInternal(
+  newState: any,
+  events: GameEvent[],
+  activatingPlayer: PlayerId,
+  cardTransferred: boolean
+): EffectResult {
+  const player = newState.players[activatingPlayer]!;
+  
+  // Check if red or purple cards can be splayed (2+ cards)
+  const redStack = player.colors.find((stack: any) => stack.color === 'Red' && stack.cards.length > 1);
+  const purpleStack = player.colors.find((stack: any) => stack.color === 'Purple' && stack.cards.length > 1);
+  
+  if (!redStack && !purpleStack) {
+    // No eligible cards for splaying, complete
+    return { type: 'complete', newState, events, effectType: 'demand' };
+  }
+  
+  // Offer choice to splay red or purple right
+  return {
+    type: 'need_choice',
+    newState,
+    events,
+    choice: {
+      id: `emancipation_splay_${activatingPlayer}`,
+      type: 'yes_no',
+      playerId: activatingPlayer,
+      prompt: 'You may splay your red or purple cards right.',
+      source: 'emancipation_card_effect',
+      yesText: 'Splay red or purple cards right',
+      noText: 'Skip splaying'
+    },
+    nextState: {
+      step: 'waiting_splay_choice',
+      cardTransferred
+    }
+  };
 } 
