@@ -90,6 +90,11 @@ import {
   statisticsEffect,
 } from './age5-effects.js';
 
+import {
+  // Age 7 Cards
+  bicycleEffect,
+} from './age7-effects.js';
+
 // Map card names to effect functions
 export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   // Age 1 Cards
@@ -167,6 +172,9 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Democracy': democracyEffect,
   'Emancipation': emancipationEffect,
   'Vaccination': vaccinationEffect,
+  
+  // Age 7 Cards
+  'Bicycle': bicycleEffect,
 } as const;
 
 // Get effect function by card name
