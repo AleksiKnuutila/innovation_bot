@@ -327,4 +327,115 @@ describe('Age 6 Card Effects', () => {
       );
     });
   });
+
+  describe('Classification (ID 58)', () => {
+    it('should reveal hand color, take all cards of that color from opponents, and meld all', () => {
+      let state = createGameWithMeldCard(58, player1); // Meld Classification
+      
+      // Add cards to player 1's hand - some blue, some other colors
+      state = addCardsToHand(state, player1, [15, 7, 16]); // Writing (blue), Masonry (yellow), Calendar (blue)
+      
+      // Add cards to player 2's hand - including some blue cards that should be taken
+      state = addCardsToHand(state, player2, [44, 48, 2, 3]); // Printing Press (blue), Chemistry (blue), Archery (red), City States (purple)
+      
+      const dogmaResult = processDogmaAction(state, 58, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'select_cards',
+        prompt: 'Reveal the color of a card from your hand',
+        from: { zone: 'hand', playerId: player1 },
+        minCards: 1,
+        maxCards: 1
+      });
+      
+      // Player 1 chooses to reveal Writing (blue)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `classification_reveal_${player1}`,
+        playerId: player1,
+        selectedCards: [15], // Writing (blue)
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'card_revealed', cardId: 15 })
+      );
+      // Should transfer blue cards from player 2 to player 1
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 44, toPlayer: 0 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 48, toPlayer: 0 })
+      );
+      // Should meld all blue cards from player 1's hand
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 15, color: 'Blue' }) // Writing
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 16, color: 'Blue' }) // Calendar
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 44, color: 'Blue' }) // Printing Press (taken from opponent)
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 48, color: 'Blue' }) // Chemistry (taken from opponent)
+      );
+    });
+
+    it('should work when opponent has no cards of the revealed color', () => {
+      let state = createGameWithMeldCard(58, player1); // Meld Classification
+      
+      // Add cards to player 1's hand - some blue cards
+      state = addCardsToHand(state, player1, [15, 16]); // Writing (blue), Calendar (blue)
+      
+      // Add cards to player 2's hand - no blue cards
+      state = addCardsToHand(state, player2, [2, 7, 3]); // Archery (red), Masonry (yellow), City States (purple)
+      
+      const dogmaResult = processDogmaAction(state, 58, player1);
+      
+      // Player 1 chooses to reveal Writing (blue)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `classification_reveal_${player1}`,
+        playerId: player1,
+        selectedCards: [15], // Writing (blue)
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'card_revealed', cardId: 15 })
+      );
+      // Should not transfer any cards (no blue cards in opponent's hand)
+      const transferEvents = choiceResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+      // Should still meld all blue cards from player 1's hand
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 15, color: 'Blue' })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'melded', cardId: 16, color: 'Blue' })
+      );
+    });
+
+    it('should complete without action if no hand cards', () => {
+      let state = createGameWithMeldCard(58, player1); // Just Classification
+      
+      // Clear all players' hands to ensure no hand cards
+      state.players[player1].hands = [];
+      state.players[player2].hands = [];
+      
+      const dogmaResult = processDogmaAction(state, 58, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not offer any choices or perform any actions
+      const revealsEvents = dogmaResult.events.filter(e => e.type === 'card_revealed');
+      expect(revealsEvents).toHaveLength(0);
+    });
+  });
 }); 

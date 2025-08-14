@@ -11,7 +11,10 @@ import {
   getTopCards,
   moveCardBetweenZones,
   hasIcon,
-  scoreCardsFromBoard
+  scoreCardsFromBoard,
+  revealCard,
+  transferCard,
+  meldCard
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -328,6 +331,118 @@ export function canningEffect(
       if (choiceAnswer.answer) {
         // Player chose to splay yellow right
         newState = splayColor(newState, activatingPlayer, 'Yellow', 'right', events);
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
+}
+
+// Classification (ID 58) - Reveal hand color, take all cards of that color from opponents, meld all
+interface ClassificationState {
+  step: 'check_hand' | 'waiting_reveal_choice';
+}
+
+export function classificationEffect(
+  context: DogmaContext,
+  state: ClassificationState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_hand': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.hands.length === 0) {
+        // No cards in hand, complete immediately
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer choice to reveal a card from hand
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `classification_reveal_${activatingPlayer}`,
+          type: 'select_cards',
+          playerId: activatingPlayer,
+          prompt: 'Reveal the color of a card from your hand',
+          source: 'classification_card_effect',
+          from: { zone: 'hand', playerId: activatingPlayer },
+          minCards: 1,
+          maxCards: 1
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_reveal_choice'
+        }
+      };
+    }
+
+    case 'waiting_reveal_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards' || choiceAnswer.selectedCards.length === 0) {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      const revealedCardId = choiceAnswer.selectedCards[0]!;
+      const revealedCard = CARDS.cardsById.get(revealedCardId);
+      
+      if (!revealedCard) {
+        throw new Error(`Card ${revealedCardId} not found in database`);
+      }
+
+      // Reveal the card
+      newState = revealCard(newState, activatingPlayer, revealedCardId, events);
+      
+      const revealedColor = revealedCard.color;
+
+      // Take all cards of that color from all other players' hands
+      for (const opponentId of [0, 1] as PlayerId[]) {
+        if (opponentId === activatingPlayer) continue;
+        
+        const opponent = newState.players[opponentId]!;
+        const cardsToTake: number[] = [];
+        
+        // Find all cards of the revealed color in opponent's hand
+        for (const cardId of opponent.hands) {
+          const card = CARDS.cardsById.get(cardId);
+          if (card && card.color === revealedColor) {
+            cardsToTake.push(cardId);
+          }
+        }
+        
+        // Transfer each card from opponent to activating player
+        for (const cardId of cardsToTake) {
+          newState = transferCard(newState, opponentId, activatingPlayer, cardId, 'hand', 'hand', events);
+        }
+      }
+
+      // Meld all cards of that color from activating player's hand
+      const player = newState.players[activatingPlayer]!;
+      const cardsToMeld: number[] = [];
+      
+      // Find all cards of the revealed color in activating player's hand
+      for (const cardId of player.hands) {
+        const card = CARDS.cardsById.get(cardId);
+        if (card && card.color === revealedColor) {
+          cardsToMeld.push(cardId);
+        }
+      }
+      
+      // Meld each card
+      for (const cardId of cardsToMeld) {
+        newState = meldCard(newState, activatingPlayer, cardId, events);
       }
 
       return { type: 'complete', newState, events, effectType: 'non-demand' };
