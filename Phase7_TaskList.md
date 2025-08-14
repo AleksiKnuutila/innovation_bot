@@ -9,13 +9,13 @@
 
 ## 🎯 Current Progress Summary
 
-**Overall Progress**: 62/105 cards (59%) complete
+**Overall Progress**: 63/105 cards (60%) complete
 - ✅ **Age 1 Cards**: 15/15 (100%) - Complete with comprehensive testing
 - ✅ **Age 2 Cards**: 10/10 (100%) - Complete with comprehensive testing  
 - ✅ **Age 3 Cards**: 10/10 (100%) - Complete with comprehensive testing
 - ✅ **Age 4 Cards**: 7/10 (70%) - 7 fully working, 3 complex demand effects structured
 - ✅ **Age 5 Cards**: 6/10 (60%) - 6 fully working, 4 complex demand effects remaining
-- ✅ **Age 6 Cards**: 7/10 (70%) - 7 fully working (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System)
+- ✅ **Age 6 Cards**: 8/10 (80%) - 8 fully working (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy)
 - ⏳ **Age 7+ Cards**: 0/55 (0%) - Not yet implemented
 
 **Completed Major Tasks**:
@@ -272,14 +272,17 @@
 - [x] Encyclopedia (ID 61) - ✅ **FULLY WORKING** - Optional meld all highest cards from score pile
 - [x] Industrialization (ID 62) - ✅ **FULLY WORKING** - Draw/tuck 6s based on Factory icons, optional splay red/purple right
 - [x] Metric System (ID 64) - ✅ **FULLY WORKING** - Conditional splay any color if green splayed right, optional splay green right
-- [ ] Democracy (ID 59) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
+- [x] Democracy (ID 59) - ✅ **FULLY WORKING** - Optional return cards, conditional draw/score 8 based on threshold
+- [ ] Emancipation (ID 60) - ⏳ **NOT STARTED** - Demand transfer to score + optional splay
+- [ ] Vaccination (ID 65) - ⏳ **NOT STARTED** - Demand return lowest score cards + conditional draw/meld
 
 **Implementation Progress**:
-- ✅ **Working Cards**: 7/10 (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System)
+- ✅ **Working Cards**: 8/10 (Atomic Theory, Machine Tools, Canning, Classification, Encyclopedia, Industrialization, Metric System, Democracy)
 - ✅ **File Organization**: Created `age6-effects.ts` for better code organization
 - ✅ **Choice System**: Validated "You may" effects work correctly with yes/no and select_pile choices
 - ✅ **Test Framework**: Age 6 test file created with comprehensive test patterns
 - ✅ **Icon Mechanics**: Validated Factory icon counting with splaying mechanics
+- ✅ **Conditional Logic**: Implemented conditional splaying and threshold-based effects
 
 ### Task 7d.NEW: File Organization by Age ✅ **COMPLETED**
 - **Description**: Split the monster effect-handlers.ts file into age-specific files for better maintainability

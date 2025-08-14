@@ -339,6 +339,7 @@ function getInitialState(cardName: string): any {
     case 'Encyclopedia': return { step: 'check_score' };
     case 'Industrialization': return { step: 'draw_tuck_phase' };
     case 'Metric System': return { step: 'check_green_condition' };
+    case 'Democracy': return { step: 'check_hand' };
       
     // Age 5 Cards
     case 'Coal':

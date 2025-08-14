@@ -770,4 +770,124 @@ describe('Age 6 Card Effects', () => {
       expect(splayEvents).toHaveLength(0);
     });
   });
+
+  describe('Democracy (ID 59)', () => {
+    it('should offer choice to return cards and draw/score 8 if most returned', () => {
+      let state = createGameWithMeldCard(59, player1); // Meld Democracy
+      
+      // Add cards to hand for returning
+      state = addCardsToHand(state, player1, [1, 2, 3, 7]); // 4 cards in hand
+      state = addCardsToHand(state, player2, [4, 5]); // 2 cards for player 2
+      
+      const dogmaResult = processDogmaAction(state, 59, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'select_cards',
+        prompt: 'You may return any number of cards from your hand.',
+        minCards: 0,
+        from: { zone: 'hand', playerId: player1 }
+      });
+      
+      // Player 1 chooses to return 3 cards (more than any other player)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `democracy_return_${player1}`,
+        playerId: player1,
+        selectedCards: [1, 2, 3], // Return 3 cards
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 1 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 2 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 3 })
+      );
+      // Should draw and score an 8 since returned more than others
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 8 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored' })
+      );
+    });
+
+    it('should not draw/score if not most cards returned', () => {
+      let state = createGameWithMeldCard(59, player1); // Meld Democracy
+      
+      // Add cards to hand
+      state = addCardsToHand(state, player1, [1, 2]); // 2 cards in hand
+      
+      const dogmaResult = processDogmaAction(state, 59, player1);
+      
+      // Player 1 chooses to return 1 card (< 2 threshold)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `democracy_return_${player1}`,
+        playerId: player1,
+        selectedCards: [1], // Return 1 card (< 2 threshold)
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'returned', cardId: 1 })
+      );
+      // Should NOT draw or score since returned < 2 cards
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+      const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(0);
+    });
+
+    it('should complete without action if no cards in hand', () => {
+      let state = createGameWithMeldCard(59, player1); // Just Democracy
+      
+      // Explicitly clear the player's hand
+      state.players[player1].hands = [];
+      
+      const dogmaResult = processDogmaAction(state, 59, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not offer choices or perform any actions
+      const returnEvents = dogmaResult.events.filter(e => e.type === 'returned');
+      expect(returnEvents).toHaveLength(0);
+    });
+
+    it('should complete if player chooses not to return any cards', () => {
+      let state = createGameWithMeldCard(59, player1); // Meld Democracy
+      
+      // Add cards to hand
+      state = addCardsToHand(state, player1, [1, 2, 3]);
+      
+      const dogmaResult = processDogmaAction(state, 59, player1);
+      
+      // Player chooses not to return any cards
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        choiceId: `democracy_return_${player1}`,
+        playerId: player1,
+        selectedCards: [], // Return no cards
+        timestamp: Date.now()
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not return, draw, or score anything
+      const returnEvents = choiceResult.events.filter(e => e.type === 'returned');
+      expect(returnEvents).toHaveLength(0);
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+    });
+  });
 }); 

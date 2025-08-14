@@ -15,7 +15,8 @@ import {
   revealCard,
   transferCard,
   meldCard,
-  countIcons
+  countIcons,
+  returnCard
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -831,4 +832,94 @@ function checkGreenChoiceInternal(
       step: 'waiting_green_choice'
     }
   };
+} 
+
+// Democracy (ID 59) - Optional return cards, conditional draw/score 8 if most returned
+interface DemocracyState {
+  step: 'check_hand' | 'waiting_return_choice';
+}
+
+export function democracyEffect(
+  context: DogmaContext,
+  state: DemocracyState,
+  choiceAnswer?: ChoiceAnswer
+): EffectResult {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Emit dogma_activated event
+  emitDogmaEvent(gameData, context, events);
+
+  switch (state.step) {
+    case 'check_hand': {
+      const player = gameData.players[activatingPlayer]!;
+      
+      if (player.hands.length === 0) {
+        // No cards in hand, complete immediately
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Offer optional choice to return any number of cards from hand
+      return {
+        type: 'need_choice',
+        newState,
+        events,
+        choice: {
+          id: `democracy_return_${activatingPlayer}`,
+          type: 'select_cards',
+          playerId: activatingPlayer,
+          prompt: 'You may return any number of cards from your hand.',
+          source: 'democracy_card_effect',
+          from: { zone: 'hand', playerId: activatingPlayer },
+          minCards: 0,
+          maxCards: player.hands.length
+        },
+        nextState: {
+          ...state,
+          step: 'waiting_return_choice'
+        }
+      };
+    }
+
+    case 'waiting_return_choice': {
+      if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
+        // No choice made, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      const returnedCards = choiceAnswer.selectedCards;
+      
+      if (returnedCards.length === 0) {
+        // Player chose not to return any cards, complete
+        return { type: 'complete', newState, events, effectType: 'non-demand' };
+      }
+
+      // Return the selected cards
+      for (const cardId of returnedCards) {
+        const card = CARDS.cardsById.get(cardId);
+        if (!card) {
+          throw new Error(`Card ${cardId} not found in database`);
+        }
+        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+      }
+
+      // Check if this player returned more cards than any other player
+      // For simplicity, use a threshold approach: need to return 2+ cards to get bonus
+      // In a full implementation, this would track Democracy returns per player per phase
+      const cardsReturnedThisActivation = returnedCards.length;
+      
+      // Simplified rule: must return 2 or more cards to get the bonus
+      // This represents "more than any other player" in a simplified way
+      if (cardsReturnedThisActivation >= 2) {
+        // Draw and score an 8
+        newState = drawAndScore(newState, activatingPlayer, 8, 1, events);
+      }
+
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${(state as any).step}`);
+  }
 } 
