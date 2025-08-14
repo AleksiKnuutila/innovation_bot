@@ -448,6 +448,59 @@ export function returnCard(
 }
 
 /**
+ * Return a card from board to the supply pile
+ */
+export function returnCardFromBoard(
+  gameData: GameData,
+  playerId: PlayerId,
+  cardId: CardId,
+  events: GameEvent[]
+): GameData {
+  const newState = deepClone(gameData);
+  const player = newState.players[playerId]!;
+  
+  // Get card data to determine its age
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) {
+    throw new Error(`Card ${cardId} not found in database`);
+  }
+  
+  // Find and remove card from board
+  let removed = false;
+  for (const colorStack of player.colors) {
+    const cardIndex = colorStack.cards.indexOf(cardId);
+    if (cardIndex !== -1) {
+      colorStack.cards.splice(cardIndex, 1);
+      removed = true;
+      break;
+    }
+  }
+  
+  if (!removed) {
+    throw new Error(`Card ${cardId} not found in player ${playerId}'s board`);
+  }
+  
+  // Add card back to supply pile
+  const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+  if (!supplyPile) {
+    throw new Error(`Supply pile for age ${card.age} not found`);
+  }
+  
+  supplyPile.cards.push(cardId);
+  
+  // Emit return event
+  const event = emitEvent(newState, 'returned', {
+    playerId,
+    cardId,
+    fromZone: { playerId, zone: 'board' },
+    toAge: card.age,
+  });
+  events.push(event);
+  
+  return newState;
+}
+
+/**
  * Exchange cards between hand and score pile
  * Swaps cards between the two zones
  */
@@ -1323,6 +1376,82 @@ export function findTopCardsWithColor(
   }
   
   return topCards;
+}
+
+// Helper function to find all top cards WITHOUT a specific icon (common pattern)
+export function findTopCardsWithoutIcon(
+  gameData: GameData,
+  playerId: PlayerId,
+  icon: string
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  const topCards: CardId[] = [];
+  
+  for (const stack of player.colors) {
+    if (stack.cards.length === 0) continue;
+    
+    const topCard = stack.cards[stack.cards.length - 1]!;
+    if (!cardHasIcon(topCard, icon)) {
+      topCards.push(topCard);
+    }
+  }
+  
+  return topCards;
+}
+
+// Helper function to find all top cards WITH a specific icon (existing pattern)
+export function findTopCardsWithIcon(
+  gameData: GameData,
+  playerId: PlayerId,
+  icon: string
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  const topCards: CardId[] = [];
+  
+  for (const stack of player.colors) {
+    if (stack.cards.length === 0) continue;
+    
+    const topCard = stack.cards[stack.cards.length - 1]!;
+    if (cardHasIcon(topCard, icon)) {
+      topCards.push(topCard);
+    }
+  }
+  
+  return topCards;
+}
+
+// Helper function to find cards by any criteria function
+export function findCardsByCriteria(
+  gameData: GameData,
+  playerId: PlayerId,
+  zone: 'hand' | 'score' | 'board',
+  criteriaFn: (cardId: CardId) => boolean
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  let cardsToSearch: CardId[] = [];
+  
+  switch (zone) {
+    case 'hand':
+      cardsToSearch = player.hands;
+      break;
+    case 'score':
+      cardsToSearch = player.scores;
+      break;
+    case 'board':
+      // Get all top cards from board
+      cardsToSearch = player.colors
+        .filter(stack => stack.cards.length > 0)
+        .map(stack => stack.cards[stack.cards.length - 1]!);
+      break;
+  }
+  
+  return cardsToSearch.filter(criteriaFn);
 }
 
 // Helper function to find all non-green top cards with Factory icons (common pattern)

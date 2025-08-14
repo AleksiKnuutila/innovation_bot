@@ -76,7 +76,7 @@ export function executeDogmaEffect(
     return effectFunction(context, currentEffect.state);
   } else {
     // Check if this is a simplified effect
-    const simplifiedEffects = ['Domestication', 'Sailing', 'The Wheel', 'Writing', 'Calendar', 'Canal Building', 'Fermenting', 'Paper', 'Translation', 'Reformation', 'Vaccination', 'Bicycle', 'Combustion'];
+    const simplifiedEffects = ['Domestication', 'Sailing', 'The Wheel', 'Writing', 'Calendar', 'Canal Building', 'Fermenting', 'Paper', 'Translation', 'Reformation', 'Vaccination', 'Bicycle', 'Combustion', 'Electricity'];
     
     if (simplifiedEffects.includes(card.title)) {
       // Simplified effects don't need initial state

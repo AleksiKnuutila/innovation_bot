@@ -13,10 +13,12 @@ import {
   drawCard,
   transferCard,
   returnCard,
+  returnCardFromBoard,
   revealCard,
   meldCard,
   findNonGreenFactoryCards,
-  cardHasIcon
+  cardHasIcon,
+  findTopCardsWithoutIcon
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -138,8 +140,29 @@ export const combustionEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Electricity (ID 68) - Return non-Factory top cards, draw 8s for each
+export const electricityEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Find all top cards without Factory icons using helper function
+  const cardsToReturn = findTopCardsWithoutIcon(newState, activatingPlayer, 'Factory');
+  
+  // Return the cards from board to supply using the new primitive
+  for (const cardId of cardsToReturn) {
+    newState = returnCardFromBoard(newState, activatingPlayer, cardId, events);
+  }
+  
+  // Draw an 8 for each card returned
+  for (let i = 0; i < cardsToReturn.length; i++) {
+    newState = drawCard(newState, activatingPlayer, 8, events);
+  }
+  
+  return [newState, events];
+});
+
 // TODO: Add other Age 7 effects here as they are implemented
-// - electricityEffect
 // - evolutionEffect
 // - explosivesEffect
 // - lightingEffect
