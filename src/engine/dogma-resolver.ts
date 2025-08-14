@@ -349,6 +349,13 @@ function getInitialState(cardName: string): any {
       return { step: 'start' }; // Simple effect
     case 'Banking':
       return { step: 'start' }; // Simple effect
+    case 'Bicycle':
+    case 'Combustion':
+    case 'Electricity':
+      return { step: 'start' };
+    
+    case 'Evolution':
+      return { step: 'start' };
       
     default:
       return { step: 'start' };

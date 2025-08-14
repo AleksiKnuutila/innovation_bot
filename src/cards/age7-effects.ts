@@ -1,19 +1,16 @@
 // Age 7 Card Effects
-import type { DogmaContext, EffectResult } from '../types/dogma.js';
-import type { ChoiceAnswer } from '../types/choices.js';
-import type { GameEvent } from '../types/events.js';
-import type { PlayerId, CardId } from '../types/index.js';
-import { 
-  drawAndMeld, 
-  drawAndTuck, 
+import {
+  drawAndMeld,
+  drawAndTuck,
   drawAndScore,
-  splayColor, 
+  splayColor,
   countIcons,
   hasIcon,
   drawCard,
   transferCard,
   returnCard,
   returnCardFromBoard,
+  returnCardFromScore,
   revealCard,
   meldCard,
   findNonGreenFactoryCards,
@@ -22,6 +19,11 @@ import {
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
+import type { DogmaContext, EffectResult } from '../types/dogma.js';
+import type { GameEvent } from '../types/events.js';
+import type { PlayerId } from '../types/core.js';
+import { createYesNoChoice } from '../types/choices.js';
+import type { CardId } from '../types/core.js';
 
 // Helper function to emit dogma events
 function emitDogmaEvent(
@@ -32,28 +34,22 @@ function emitDogmaEvent(
   const dogmaEvent = emitEvent(gameData, 'dogma_activated', {
     playerId: context.activatingPlayer,
     cardId: context.cardId,
-    dogmaLevel: context.dogmaLevel,
-    source: `${context.cardId}_card_effect`
   });
   events.push(dogmaEvent);
 }
 
-// Simple effect wrapper helper
+// Helper function to create simple effects that auto-execute and emit dogma_activated
 function createSimpleEffect(
   effectFn: (context: DogmaContext) => [any, GameEvent[]]
 ): (context: DogmaContext, state: any, choiceAnswer?: any) => EffectResult {
-  return (context: DogmaContext, state: any, _choiceAnswer?: any): EffectResult => {
+  return (context: DogmaContext, state: any, choiceAnswer?: any): EffectResult => {
+    // Execute the effect function
     const [newState, events] = effectFn(context);
     
-    // Auto-emit dogma_activated event for simple effects
+    // Emit dogma_activated event
     emitDogmaEvent(newState, context, events);
     
-    return { 
-      type: 'complete', 
-      newState, 
-      events, 
-      effectType: 'non-demand' 
-    };
+    return { type: 'complete', newState, events };
   };
 }
 
@@ -69,44 +65,17 @@ export const bicycleEffect = createSimpleEffect((context: DogmaContext) => {
 
   const player = newState.players[activatingPlayer]!;
   
-  // Exchange hand cards with score cards
-  const oldHand = [...player.hands];
-  const oldScores = [...player.scores];
+  // Get all cards from hand and score pile
+  const handCards = [...player.hands];
+  const scoreCards = [...player.scores];
   
-  // Clear both arrays first
-  player.hands.splice(0, player.hands.length);
-  player.scores.splice(0, player.scores.length);
+  // Clear both zones
+  player.hands.splice(0);
+  player.scores.splice(0);
   
-  // Add the swapped cards
-  player.hands.push(...oldScores);
-  player.scores.push(...oldHand);
-  
-  // Emit transfer events for the exchange if any cards were moved
-  if (oldHand.length > 0) {
-    for (const cardId of oldHand) {
-      const transferEvent = emitEvent(newState, 'transferred', {
-        cardId,
-        fromPlayer: activatingPlayer,
-        toPlayer: activatingPlayer,
-        fromZone: { playerId: activatingPlayer, zone: 'hand' },
-        toZone: { playerId: activatingPlayer, zone: 'score' }
-      });
-      events.push(transferEvent);
-    }
-  }
-  
-  if (oldScores.length > 0) {
-    for (const cardId of oldScores) {
-      const transferEvent = emitEvent(newState, 'transferred', {
-        cardId,
-        fromPlayer: activatingPlayer,
-        toPlayer: activatingPlayer,
-        fromZone: { playerId: activatingPlayer, zone: 'score' },
-        toZone: { playerId: activatingPlayer, zone: 'hand' }
-      });
-      events.push(transferEvent);
-    }
-  }
+  // Exchange: hand cards go to score, score cards go to hand
+  player.hands.push(...scoreCards);
+  player.scores.push(...handCards);
   
   return [newState, events];
 });
@@ -117,7 +86,6 @@ export const combustionEffect = createSimpleEffect((context: DogmaContext) => {
   let newState = gameData;
   const events: GameEvent[] = [];
 
-  // Find players with fewer Crown icons than the activating player
   const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
   
   // Execute demand effect for affected players
@@ -162,11 +130,78 @@ export const electricityEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Evolution (ID 69) - Choice between two actions
+export const evolutionEffect = (context: DogmaContext, state: any, choiceAnswer?: any): EffectResult => {
+  const { gameData, activatingPlayer } = context;
+
+  switch (state.step) {
+    case 'start': {
+      // Emit dogma activated event first
+      const events: GameEvent[] = [];
+      emitDogmaEvent(gameData, context, events);
+
+      // Offer choice between two options
+      return {
+        type: 'need_choice',
+        newState: gameData,
+        events,
+        choice: createYesNoChoice(
+          'evolution_choice',
+          activatingPlayer,
+          'Choose your Evolution strategy:',
+          'evolution_effect',
+          'Draw and score an 8, then return a card from score pile',
+          'Draw a card of value one higher than highest in score pile'
+        ),
+        nextState: { step: 'waiting_choice' }
+      };
+    }
+
+    case 'waiting_choice': {
+      let newState = gameData;
+      const events: GameEvent[] = [];
+      
+      if (choiceAnswer?.answer === true) {
+        // Option 1: Draw and score an 8, then return a card from score pile
+        const player = newState.players[activatingPlayer]!;
+        let cardToReturn: CardId | null = null;
+        
+        // Check if player has cards in score pile to return BEFORE drawing/scoring
+        if (player.scores.length > 0) {
+          cardToReturn = player.scores[player.scores.length - 1]!; // Remember the most recent
+        }
+        
+        // Draw and score the 8
+        newState = drawAndScore(newState, activatingPlayer, 8, 1, events);
+        
+        // Now return the card we remembered (if any)
+        if (cardToReturn !== null) {
+          newState = returnCardFromScore(newState, activatingPlayer, cardToReturn, events);
+        }
+      } else {
+        // Option 2: Draw a card of value one higher than highest in score pile
+        const player = newState.players[activatingPlayer]!;
+        let highestValue = 0;
+        
+        // Find highest value in score pile
+        for (const cardId of player.scores) {
+          const card = CARDS.cardsById.get(cardId);
+          if (card && card.age > highestValue) {
+            highestValue = card.age;
+          }
+        }
+        
+        // Draw card of value one higher (minimum 1)
+        const drawAge = Math.max(1, highestValue + 1);
+        newState = drawCard(newState, activatingPlayer, drawAge, events);
+      }
+      
+      return { type: 'complete', newState, events, effectType: 'non-demand' };
+    }
+
+    default:
+      throw new Error(`Unknown step: ${state.step}`);
+  }
+};
+
 // TODO: Add other Age 7 effects here as they are implemented
-// - evolutionEffect
-// - explosivesEffect
-// - lightingEffect
-// - publicationsEffect
-// - railroadEffect
-// - refrigerationEffect
-// - sanitationEffect 

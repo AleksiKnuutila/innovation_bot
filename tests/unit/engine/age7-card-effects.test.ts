@@ -86,6 +86,12 @@ describe('Age 7 Card Effects', () => {
     return state;
   }
 
+  // Helper function to find cards by age for more robust test setup
+  function findCardsByAge(age: number, count: number = 1): number[] {
+    const ageCards = CARDS.cardsByAge.get(age as any) || [];
+    return ageCards.slice(0, count).map(card => card.id);
+  }
+
   // TODO: Add Age 7 card test suites here as they are implemented
   // - Bicycle (ID 66)
   // - Combustion (ID 67)
@@ -474,6 +480,189 @@ describe('Age 7 Card Effects', () => {
       expect(dogmaResult.events).toContainEqual(
         expect.objectContaining({ type: 'shared_effect' })
       );
+    });
+  });
+
+  describe('Evolution (ID 69)', () => {
+    it('should offer choice between two Evolution strategies', () => {
+      let state = createGameWithMeldCard(69, player1); // Meld Evolution (blue)
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        playerId: player1,
+        prompt: 'Choose your Evolution strategy:',
+        yesText: 'Draw and score an 8, then return a card from score pile',
+        noText: 'Draw a card of value one higher than highest in score pile'
+      });
+      
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+    });
+
+    it('should execute option 1: draw and score 8, then return from score pile', () => {
+      let state = createGameWithMeldCard(69, player1); // Meld Evolution
+      
+      // Add some cards to score pile using helper function
+      const age1Cards = findCardsByAge(1, 1); // Get 1 age 1 card
+      const age2Cards = findCardsByAge(2, 2); // Get 2 age 2 cards
+      state = addCardsToScore(state, player1, [...age1Cards, ...age2Cards]);
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Choose option 1 (Yes)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should have drawn and scored an 8
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew' && e.fromAge === 8);
+      expect(drewEvents).toHaveLength(1);
+      
+      const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(1);
+      // Check that the scored card is from age 8
+      const scoredCardId = scoredEvents[0].cardIds[0];
+      const scoredCard = CARDS.cardsById.get(scoredCardId);
+      expect(scoredCard?.age).toBe(8);
+      
+      // Should have returned a card from score pile (most recent before scoring)
+      const returnedEvents = choiceResult.events.filter(e => e.type === 'returned');
+      expect(returnedEvents).toHaveLength(1);
+      expect(returnedEvents[0]).toMatchObject({
+        type: 'returned',
+        cardId: age2Cards[1] // Most recent card (second age 2 card)
+      });
+    });
+
+    it('should execute option 2: draw card of value one higher than highest in score pile', () => {
+      let state = createGameWithMeldCard(69, player1); // Meld Evolution
+      
+      // Add cards to score pile with highest being age 3
+      const age1Cards = findCardsByAge(1, 1);
+      const age2Cards = findCardsByAge(2, 1); 
+      const age3Cards = findCardsByAge(3, 1);
+      state = addCardsToScore(state, player1, [...age1Cards, ...age2Cards, ...age3Cards]);
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Choose option 2 (No)
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should have drawn a card of age 4 (one higher than highest age 3)
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew' && e.fromAge === 4);
+      expect(drewEvents).toHaveLength(1);
+      
+      // Should NOT have scored or returned anything
+      const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(0);
+      
+      const returnedEvents = choiceResult.events.filter(e => e.type === 'returned');
+      expect(returnedEvents).toHaveLength(0);
+    });
+
+    it('should draw age 1 when score pile is empty (option 2)', () => {
+      let state = createGameWithMeldCard(69, player1); // Just Evolution, empty score pile
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Choose option 2 (No) with empty score pile
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should draw age 1 (highest value 0 + 1 = 1)
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew' && e.fromAge === 1);
+      expect(drewEvents).toHaveLength(1);
+    });
+
+    it('should handle option 1 with empty score pile (no return)', () => {
+      let state = createGameWithMeldCard(69, player1); // Just Evolution, empty score pile
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Choose option 1 (Yes) with empty score pile
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: true
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should have drawn and scored an 8
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew' && e.fromAge === 8);
+      expect(drewEvents).toHaveLength(1);
+      
+      const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(1);
+      // Check that the scored card is from age 8
+      const scoredCardId = scoredEvents[0].cardIds[0];
+      const scoredCard = CARDS.cardsById.get(scoredCardId);
+      expect(scoredCard?.age).toBe(8);
+      
+      // Should NOT have returned anything (empty score pile)
+      const returnedEvents = choiceResult.events.filter(e => e.type === 'returned');
+      expect(returnedEvents).toHaveLength(0);
+    });
+
+    it('should be shared by other players with equal Lightbulb icons', () => {
+      let state = createGameWithMeldCard(69, player1); // Evolution has 3 Lightbulb icons
+      
+      // Give player2 equal Lightbulb icons (3 total)
+      state.players[player2].colors.push({
+        color: 'Blue',
+        cards: [44, 45], // Printing Press (2 Lightbulb) + Reformation (0 Lightbulb) splayed
+        splayDirection: 'right'
+      });
+      state.players[player2].colors.push({
+        color: 'Purple',
+        cards: [26], // Philosophy (3 Lightbulb)
+        splayDirection: undefined
+      });
+      
+      // Add cards to both players' score piles using helper
+      const age1Cards = findCardsByAge(1, 2);
+      const age2Cards = findCardsByAge(2, 2);
+      state = addCardsToScore(state, player1, [age1Cards[0], age2Cards[0]]);
+      state = addCardsToScore(state, player2, [age1Cards[1], age2Cards[1]]);
+      
+      const dogmaResult = processDogmaAction(state, 69, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Choose option 2 for both players and complete the effect
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'yes_no',
+        answer: false // Choose option 2 to avoid score pile complications
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      
+      // Both players should have executed the effect (sharing occurred)
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'shared_effect' })
+      );
+      
+      // Both players should have drawn cards (evidence of sharing)
+      const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents.length).toBeGreaterThan(1); // More than 1 draw = sharing happened
     });
   });
 

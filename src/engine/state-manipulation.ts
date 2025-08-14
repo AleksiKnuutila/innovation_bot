@@ -1469,3 +1469,48 @@ export function findCrownCardsInHand(
 ): CardId[] {
   return findCardsWithIcon(gameData, playerId, 'Crown', 'hand');
 } 
+
+/**
+ * Return a card from player's score pile to the supply pile
+ */
+export function returnCardFromScore(
+  gameData: GameData,
+  playerId: PlayerId,
+  cardId: CardId,
+  events: GameEvent[]
+): GameData {
+  const newState = { ...gameData };
+  const player = newState.players[playerId]!;
+  
+  // Find and remove card from score pile
+  const scoreIndex = player.scores.indexOf(cardId);
+  if (scoreIndex === -1) {
+    throw new Error(`Card ${cardId} not found in player ${playerId}'s score pile`);
+  }
+  player.scores.splice(scoreIndex, 1);
+  
+  // Get card info
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) {
+    throw new Error(`Card ${cardId} not found in database`);
+  }
+  
+  // Add card back to supply pile
+  const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+  if (!supplyPile) {
+    throw new Error(`Supply pile for age ${card.age} not found`);
+  }
+  
+  supplyPile.cards.push(cardId);
+  
+  // Emit return event
+  const event = emitEvent(newState, 'returned', {
+    playerId,
+    cardId,
+    fromZone: { playerId, zone: 'score' },
+    toAge: card.age,
+  });
+  events.push(event);
+  
+  return newState;
+} 

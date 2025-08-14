@@ -95,6 +95,7 @@ import {
   bicycleEffect,
   combustionEffect,
   electricityEffect,
+  evolutionEffect,
 } from './age7-effects.js';
 
 // Map card names to effect functions
@@ -179,6 +180,7 @@ export const EFFECT_BY_NAME: Record<string, CardEffectFunction> = {
   'Bicycle': bicycleEffect,
   'Combustion': combustionEffect,
   'Electricity': electricityEffect,
+  'Evolution': evolutionEffect,
 } as const;
 
 // Get effect function by card name
