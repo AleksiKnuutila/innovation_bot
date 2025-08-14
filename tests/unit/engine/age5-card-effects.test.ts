@@ -267,4 +267,139 @@ describe('Age 5 Card Effects', () => {
       );
     });
   });
+
+  describe('Banking (ID 47)', () => {
+    it('should execute demand to transfer non-green Factory card', () => {
+      let state = createGameWithMeldCard(47, player1); // Meld Banking (green)
+      
+      // Give activating player more Crown icons by adding another Crown card and splaying
+      state.players[player1].colors.push({
+        color: 'Purple',
+        cards: [53, 30], // Societies (1 Crown), Feudalism (1 Castle + 1 Leaf + 1 Castle) 
+        splayDirection: 'right' // Make icons visible
+      });
+      
+      // Give target player a non-green card with Factory icons
+      state.players[player2].colors.push({
+        color: 'Red',
+        cards: [49], // Coal has Factory icons and is not green
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 47, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'select_cards',
+        playerId: player2, // Target player makes the choice
+        prompt: expect.stringContaining('transfer')
+      });
+    });
+
+    it('should complete choice and transfer card, then activating player draws and scores', () => {
+      let state = createGameWithMeldCard(47, player1); // Meld Banking (green)
+      
+      // Setup icon disparity (activating player has more Crown icons)
+      // Banking itself provides 2 Crown icons (middle, right)
+      // Add more Crown icons to ensure activating player has advantage
+      state.players[player1].colors.push({
+        color: 'Purple', 
+        cards: [53, 30], // Societies (1 Crown), Feudalism (1 Castle + 1 Leaf + 1 Castle)
+        splayDirection: 'right' // Make icons visible
+      });
+      
+      // Give target player fewer Crown icons and a Factory card
+      // Use createGameWithMeldCard for proper setup of Coal on player2
+      let coalState = createGameWithMeldCard(49, player2); // Coal on player2's board
+      // Copy the Coal stack to our main state  
+      const coalStack = coalState.players[player2].colors.find(stack => 
+        stack.cards.includes(49)
+      );
+      if (coalStack) {
+        state.players[player2].colors.push(coalStack);
+      }
+      
+      // Execute initial demand
+      const dogmaResult = processDogmaAction(state, 47, player1);
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      
+      // Player 2 chooses to transfer Coal
+      const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+        type: 'select_cards',
+        selectedCards: [49] // Coal
+      });
+      
+      expect(choiceResult.nextPhase).toBe('AwaitingAction');
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ 
+          type: 'transferred',
+          cardId: 49
+        })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 5 })
+      );
+      expect(choiceResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored' })
+      );
+    });
+
+    it('should optionally splay green cards right in non-demand effect', () => {
+      let state = createGameWithMeldCard(47, player1); // Meld Banking (green)
+      
+      // Add another green card for splaying
+      state.players[player1].colors[0]!.cards.push(41); // Add Invention (green)
+      
+      // Ensure equal Crown icons so no demand occurs
+      // Banking has 2 Crown icons (middle, right)
+      // Give player2 exactly another Banking (ID 47) to match (but use different player2 setup)
+      let bankingState2 = createGameWithMeldCard(47, player2); 
+      const bankingStack2 = bankingState2.players[player2].colors.find(stack => 
+        stack.cards.includes(47)
+      );
+      if (bankingStack2) {
+        // Remove Banking from player2 and use a different 2-Crown card
+        // Let's use Currency (ID 19) which has Crown, Crown (left, right)
+        state.players[player2].colors.push({
+          color: 'Green',
+          cards: [19], // Currency has 2 Crown icons (left, right)
+          splayDirection: undefined
+        });
+      }
+      
+      const dogmaResult = processDogmaAction(state, 47, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        playerId: player1,
+        prompt: expect.stringContaining('splay your green cards right')
+      });
+    });
+
+    it('should complete without demand if no one has fewer Crown icons', () => {
+      let state = createGameWithMeldCard(47, player1); // Just Banking
+      
+      // Add another green card for potential splaying
+      state.players[player1].colors[0]!.cards.push(41); // Add Invention (green)
+      
+      // Ensure equal Crown icons so no demand occurs  
+      // Banking has 2 Crown icons (middle, right)
+      // Give player2 exactly 2 Crown icons to match using Currency (ID 19)
+      state.players[player2].colors.push({
+        color: 'Green',
+        cards: [19], // Currency has 2 Crown icons (left, right)
+        splayDirection: undefined
+      });
+      
+      const dogmaResult = processDogmaAction(state, 47, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+      expect(dogmaResult.pendingChoice).toMatchObject({
+        type: 'yes_no',
+        prompt: expect.stringContaining('splay your green cards right')
+      });
+    });
+  });
+
 }); 

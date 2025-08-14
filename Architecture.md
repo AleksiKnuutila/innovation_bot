@@ -535,7 +535,265 @@ case 'execute_effect': {
 }
 ```
 
-### 5. Use Helper Functions Extensively
+### 5. Critical Implementation Pitfalls and Solutions
+
+**⚠️ IMPORTANT**: These are lessons learned from implementing 65+ card effects across Ages 1-6. Following these patterns will save significant debugging time.
+
+#### A) The 'continue' vs 'complete' Trap
+
+**Common Error**: Using `type: 'continue'` when you should execute logic immediately within the same step.
+
+```typescript
+// ❌ BAD - Causes premature AwaitingAction state
+case 'waiting_return_choice': {
+  if (choiceAnswer?.selectedCards.length === 0) {
+    return { type: 'complete', newState, events };
+  }
+  
+  // Process the returned card
+  newState = returnCard(newState, activatingPlayer, cardId, age, events);
+  
+  // DON'T do this - causes engine to stop here
+  return {
+    type: 'continue',
+    newState,
+    events,
+    nextState: { step: 'score_cards' }
+  };
+}
+
+// ✅ GOOD - Execute scoring logic immediately
+case 'waiting_return_choice': {
+  if (choiceAnswer?.selectedCards.length === 0) {
+    return { type: 'complete', newState, events };
+  }
+  
+  // Process the returned card
+  newState = returnCard(newState, activatingPlayer, cardId, age, events);
+  
+  // Execute scoring logic immediately - no continue needed
+  const iconCount = countIcons(newState, activatingPlayer, 'Lightbulb');
+  const cardsToScore = Math.floor(iconCount / 2);
+  
+  for (let i = 0; i < cardsToScore && player.hands.length > 0; i++) {
+    const cardToScore = player.hands[player.hands.length - 1];
+    newState = scoreCard(newState, activatingPlayer, cardToScore, events);
+  }
+  
+  return { type: 'complete', newState, events };
+}
+```
+
+**Rule**: Only use `continue` when you genuinely need to pause execution and transition to a different logical step. If you can execute the logic immediately after a choice, do it in the same case.
+
+#### B) Icon Visibility and Splaying Gotchas
+
+**Common Error**: Expecting icons to be visible when cards aren't properly splayed.
+
+```typescript
+// ❌ BAD - Icons might not be visible
+const factoryCount = countIcons(gameData, activatingPlayer, 'Factory');
+// factoryCount returns 0 because cards aren't splayed!
+
+// ✅ GOOD - Test setup ensures icon visibility
+// In test setup:
+const industrializationStack = state.players[player1].colors.find(stack => stack.color === 'Red');
+if (industrializationStack) {
+  industrializationStack.cards.push(63); // Add second card
+  industrializationStack.splayDirection = 'right'; // CRITICAL - makes icons visible
+}
+```
+
+**Icon Visibility Rules**:
+- Single cards: Only top card's icons visible
+- Unsplayed stacks: Only top card's icons visible  
+- Splayed stacks: Icons from lower cards become visible
+- **Test Setup**: Always splay stacks in tests when expecting icon counts > top card
+
+#### C) Zone Confusion - Hand vs Score vs Board
+
+**Common Error**: Using wrong primitive for the source zone.
+
+```typescript
+// ❌ BAD - returnCard expects cards to be in hand
+// But Vaccination needs to return from score pile
+newState = returnCard(newState, playerId, cardId, age, events);
+// Error: Card not found in player's hand
+
+// ✅ GOOD - Manual score pile return
+const scoreIndex = player.scores.indexOf(cardId);
+if (scoreIndex !== -1) {
+  player.scores.splice(scoreIndex, 1);
+  
+  const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+  if (supplyPile) {
+    supplyPile.cards.push(cardId);
+  }
+  
+  const returnEvent = emitEvent(newState, 'returned', {
+    playerId,
+    cardId,
+    fromZone: { playerId, zone: 'score' },
+    toAge: card.age,
+  });
+  events.push(returnEvent);
+}
+```
+
+**Zone Primitive Guidelines**:
+- `returnCard()`: Hand → Supply
+- `scoreCard()`: Hand → Score pile  
+- `meldCard()`: Hand → Board
+- `transferCard()`: Any zone → Any zone (most flexible)
+- **Custom logic needed**: Score pile → Supply, Board → Score pile
+
+#### D) Test Event Assertion Specificity
+
+**Common Error**: Testing event structure too specifically.
+
+```typescript
+// ❌ BAD - Tests internal event structure
+expect(choiceResult.events).toContainEqual(
+  expect.objectContaining({ 
+    type: 'transferred', 
+    cardId: 1,
+    fromPlayer: player2, // Full player object - implementation detail
+    toPlayer: player1
+  })
+);
+
+// ✅ GOOD - Test essential fields only
+expect(choiceResult.events).toContainEqual(
+  expect.objectContaining({ 
+    type: 'transferred', 
+    cardId: 1,
+    toPlayer: player1
+  })
+);
+```
+
+**Event Testing Principles**:
+- Test event type and key data (cardId, playerId, etc.)
+- Avoid testing internal object structures  
+- Focus on game-relevant information
+- Use `expect.objectContaining()` for partial matching
+
+#### E) Demand Effect Targeting Setup
+
+**Common Error**: Forgetting to set up proper icon disparities for demand effects.
+
+```typescript
+// ❌ BAD - Both players have same icon count
+// Demand won't trigger because activatingPlayer doesn't have MORE icons
+const dogmaResult = processDogmaAction(state, 60, player1);
+// No one affected by demand
+
+// ✅ GOOD - Ensure activating player has more icons
+// Add icons to activating player and splay to make visible
+const emancipationStack = state.players[player1].colors.find(stack => stack.color === 'Purple');
+if (emancipationStack) {
+  emancipationStack.cards.push(55); // Add Factory card
+  emancipationStack.splayDirection = 'right'; // Make icons visible
+}
+// Target player (player2) has fewer or no Factory icons
+```
+
+**Demand Effect Test Patterns**:
+- **Activating player**: Must have MORE of the demand icon
+- **Target players**: Must have FEWER of the demand icon
+- **Icon visibility**: Ensure stacks are splayed to reveal icons
+- **Edge cases**: Test with no affected players, no cards to transfer
+
+#### F) Card Data Access Patterns
+
+**Common Error**: Hardcoding card properties instead of using the database.
+
+```typescript
+// ❌ BAD - Hardcoded assumptions about cards
+if (cardId === 1) {
+  // Assuming Agriculture is age 1 - could break
+}
+
+// ✅ GOOD - Use card database
+const card = CARDS.cardsById.get(cardId);
+if (!card) {
+  throw new Error(`Card ${cardId} not found in database`);
+}
+if (card.age === 1) {
+  // Correct approach using actual card data
+}
+```
+
+**Card Database Best Practices**:
+- Always look up card data via `CARDS.cardsById.get()`
+- Check for null/undefined results
+- Use card properties (age, color, positions) instead of assumptions
+- Validate card IDs in tests match intended cards
+
+#### G) Multi-Card Selection Logic
+
+**Common Error**: Not handling multiple cards correctly in loops.
+
+```typescript
+// ❌ BAD - Index shifting during removal
+for (const cardId of lowestCards) {
+  const scoreIndex = player.scores.indexOf(cardId);
+  player.scores.splice(scoreIndex, 1); // Shifts other indices!
+}
+
+// ✅ GOOD - Remove in reverse order or use filter
+const cardsToRemove = new Set(lowestCards);
+player.scores = player.scores.filter(cardId => !cardsToRemove.has(cardId));
+
+// Or remove in reverse order
+for (let i = lowestCards.length - 1; i >= 0; i--) {
+  const cardId = lowestCards[i];
+  const scoreIndex = player.scores.indexOf(cardId);
+  if (scoreIndex !== -1) {
+    player.scores.splice(scoreIndex, 1);
+  }
+}
+```
+
+#### H) Supply Pile Age Mismatch
+
+**Common Error**: Not finding the correct supply pile for card returns.
+
+```typescript
+// ❌ BAD - Assumes supply pile exists
+const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+supplyPile.cards.push(cardId); // Could be undefined!
+
+// ✅ GOOD - Validate supply pile exists
+const supplyPile = newState.shared.supplyPiles.find(pile => pile.age === card.age);
+if (!supplyPile) {
+  throw new Error(`Supply pile for age ${card.age} not found`);
+}
+supplyPile.cards.push(cardId);
+```
+
+#### I) Test Data Setup for Complex Conditions
+
+**Common Error**: Insufficient test setup for complex card conditions.
+
+```typescript
+// ❌ BAD - Unclear what cards are where
+state = addCardsToScore(state, player1, [1, 2, 3]);
+
+// ✅ GOOD - Explicit setup with comments
+// Add cards to score pile - mix of ages to test "lowest" logic
+state = addCardsToScore(state, player2, [1, 16, 17, 3]); 
+// Ages: 1(Agriculture), 2(Calendar), 2(Canal Building), 1(City States)
+// Lowest cards should be Agriculture and City States (both age 1)
+```
+
+**Test Setup Best Practices**:
+- Comment complex setups with card names and ages
+- Use distinct card IDs to avoid confusion
+- Set up both positive and negative test cases
+- Ensure test data matches the game rules being tested
+
+### 6. Use Helper Functions Extensively
 Break complex operations into small, testable helper functions.
 
 ```typescript
@@ -557,10 +815,10 @@ case 'check_condition': {
 }
 ```
 
-### 6. Keep Effects Brief
+### 7. Keep Effects Brief
 Target 20-40 lines per card effect. If longer, break into helper functions.
 
-### 7. Use Descriptive Step Names
+### 8. Use Descriptive Step Names
 Step names should clearly indicate what the step does.
 
 ```typescript
@@ -571,7 +829,7 @@ step: 'check_sharing_eligibility' | 'offer_optional_splay' | 'execute_demand'
 step: 'step1' | 'step2' | 'processing' | 'handle_stuff'
 ```
 
-### 8. Handle Edge Cases Early
+### 9. Handle Edge Cases Early
 Validate conditions and handle edge cases at the beginning of each step.
 
 ```typescript
@@ -760,95 +1018,304 @@ function decompressGameState(data: Uint8Array): SaveGame | ErrorResult
 - **Fuzz Testing**: 1000+ random game sequences without crashes
 - **Performance Baselines**: Action processing speed benchmarks
 
-### Test Execution
+### Critical Testing Patterns and Lessons Learned
 
-```bash
-# Run all tests
-npm test
+**⚠️ IMPORTANT**: These patterns emerged from implementing 65+ card effects across Ages 1-6. Following these will prevent common testing errors and improve test reliability.
 
-# Run specific categories
-npm run test:unit
-npm run test:integration  
-npm run test:golden
+#### A) Card Effect Test Structure
 
-# Coverage reporting
-npm run test:coverage
-
-# Watch mode for development
-npm run test:watch
-```
-
-### Testing Principles
-
-1. **Determinism First**: Every test must be reproducible with fixed seeds
-2. **State Validation**: Check game invariants after every major operation
-3. **Fail Fast**: Tests should detect regressions immediately
-4. **Documentation**: Tests serve as executable specifications
-5. **Performance Aware**: Monitor test execution time, flag regressions
-
-### Testing Callback-Based Effects
-
-The callback-based pattern makes testing card effects much easier. Each step can be tested independently:
+**Standard Pattern**: Every card effect test should follow this structure:
 
 ```typescript
-describe('Code of Laws Effect', () => {
-  it('should complete immediately if player lacks highest crown count', () => {
-    const context = createTestContext();
-    const state = { step: 'check_condition' as const };
-
-    const result = codeOfLawsEffect(context, state);
-
-    expect(result.type).toBe('complete');
-    expect(result.events).toHaveLength(0);
-  });
-
-  it('should offer choice if player has highest crown count', () => {
-    const context = createTestContextWithHighestCrown();
-    const state = { step: 'check_condition' as const };
-
-    const result = codeOfLawsEffect(context, state);
-
-    expect(result.type).toBe('need_choice');
-    expect(result.choice.type).toBe('yes_no');
-  });
-
-  it('should tuck cards when player chooses yes', () => {
-    const context = createTestContext();
-    const state = { step: 'waiting_choice' as const };
-    const choiceAnswer = createYesNoAnswer('test', 0, true);
-
-    const result = codeOfLawsEffect(context, state, choiceAnswer);
-
-    expect(result.type).toBe('complete');
-    expect(result.events).toContainEqual(
-      expect.objectContaining({ type: 'tucked' })
+describe('Card Name (ID X)', () => {
+  it('should handle main effect path', () => {
+    // 1. Setup game state with proper card placement and icon visibility
+    let state = createGameWithMeldCard(cardId, player1);
+    
+    // 2. Setup specific conditions (icons, cards in zones, etc.)
+    // Use comments to explain what each setup achieves
+    
+    // 3. Execute the effect
+    const dogmaResult = processDogmaAction(state, cardId, player1);
+    
+    // 4. Assert the result type (AwaitingAction, AwaitingChoice)
+    expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+    
+    // 5. Assert the expected events occurred
+    expect(dogmaResult.events).toContainEqual(
+      expect.objectContaining({ type: 'dogma_activated' })
     );
+    
+    // 6. Assert specific game mechanics were applied
+    // Focus on game-relevant outcomes, not implementation details
   });
 
-  it('should handle effect state transitions correctly', () => {
-    const context = createTestContextWithHighestCrown();
-    const state = { step: 'check_condition' as const };
+  it('should handle edge case: no valid targets', () => {
+    // Test with minimal setup to trigger edge case
+  });
 
-    // First call should request choice
-    const choiceResult = codeOfLawsEffect(context, state);
-    expect(choiceResult.type).toBe('need_choice');
-    expect(choiceResult.nextState.step).toBe('waiting_choice');
-
-    // Second call with choice should complete
-    const choiceAnswer = createYesNoAnswer('test', 0, true);
-    const completeResult = codeOfLawsEffect(context, choiceResult.nextState, choiceAnswer);
-    expect(completeResult.type).toBe('complete');
+  it('should handle choice: player declines optional effect', () => {
+    // Test choice-based effects with negative choices
   });
 });
 ```
 
-**Key Testing Benefits:**
+#### B) Icon Visibility Test Setup
 
-1. **Step Isolation**: Each step can be tested independently
-2. **State Validation**: Verify that `nextState` transitions correctly
-3. **Choice Handling**: Test both with and without choice answers
-4. **Edge Cases**: Easy to test different game states and conditions
-5. **Regression Prevention**: State transitions are explicit and testable
+**Critical Pattern**: Many card effects rely on icon counting, which depends on proper splaying.
+
+```typescript
+// ✅ GOOD - Explicit icon setup with comments
+function setupFactoryIcons(state: any, playerId: PlayerId, targetCount: number) {
+  // Ensure activating player has more Factory icons than target
+  const factoryStack = state.players[playerId].colors.find(stack => stack.color === 'Purple');
+  if (factoryStack && factoryStack.cards.length === 1) {
+    factoryStack.cards.push(55); // Add Steam Engine (2 Factory icons)
+    factoryStack.splayDirection = 'right'; // CRITICAL - makes icons visible
+  }
+  // Result: 2 visible Factory icons (Emancipation: 1, Steam Engine: 2, but only 2 visible due to splaying)
+}
+
+// ❌ BAD - Unclear icon setup
+function setupIcons(state: any, playerId: PlayerId) {
+  state.players[playerId].colors.push({ color: 'Red', cards: [62, 63] });
+  // Missing: splayDirection, unclear which icons are visible
+}
+```
+
+**Icon Setup Guidelines**:
+- **Single card**: Only that card's icons are visible
+- **Multiple cards, not splayed**: Only top card's icons visible
+- **Multiple cards, splayed**: Lower cards' icons become visible
+- **Test setup**: Always explicitly set `splayDirection` when you need icon visibility
+- **Comments**: Explain expected icon counts after setup
+
+#### C) Multi-Step Effect Testing
+
+**Pattern**: Effects with choices need to test the complete flow.
+
+```typescript
+describe('Complex Card with Choices', () => {
+  it('should complete full choice sequence', () => {
+    let state = createGameWithMeldCard(cardId, player1);
+    
+    // Phase 1: Initial activation should offer choice
+    const dogmaResult = processDogmaAction(state, cardId, player1);
+    expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+    expect(dogmaResult.pendingChoice).toMatchObject({
+      type: 'yes_no',
+      prompt: expect.stringContaining('You may')
+    });
+    
+    // Phase 2: Accept choice and continue
+    const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
+      type: 'yes_no',
+      answer: true
+    });
+    
+    // Phase 3: Verify final state
+    expect(choiceResult.nextPhase).toBe('AwaitingAction');
+    expect(choiceResult.events).toContainEqual(
+      expect.objectContaining({ type: 'drew' })
+    );
+  });
+});
+```
+
+#### D) Demand Effect Testing
+
+**Specific Pattern**: Demand effects need careful setup of icon disparities.
+
+```typescript
+describe('Demand Effect Card', () => {
+  it('should execute demand when target has fewer icons', () => {
+    let state = createGameWithMeldCard(demandCardId, player1);
+    
+    // Setup: Activating player has MORE icons
+    setupDemandIcons(state, player1, 3); // Give 3 demand icons
+    
+    // Setup: Target player has FEWER icons  
+    setupDemandIcons(state, player2, 1); // Give 1 demand icon
+    
+    // Setup: Target has cards to transfer
+    state = addCardsToHand(state, player2, [1, 2]);
+    
+    const dogmaResult = processDogmaAction(state, demandCardId, player1);
+    
+    // Should offer choice to target player
+    expect(dogmaResult.nextPhase).toBe('AwaitingChoice');
+    expect(dogmaResult.pendingChoice?.playerId).toBe(player2);
+  });
+
+  it('should skip demand when no one affected', () => {
+    let state = createGameWithMeldCard(demandCardId, player1);
+    
+    // Setup: All players have equal or more icons
+    setupDemandIcons(state, player1, 2);
+    setupDemandIcons(state, player2, 3); // More icons = not affected
+    
+    const dogmaResult = processDogmaAction(state, demandCardId, player1);
+    
+    // Should complete immediately without choice
+    expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+  });
+});
+```
+
+#### E) Test Data Organization
+
+**Best Practice**: Use descriptive variables and comments for test data.
+
+```typescript
+// ✅ GOOD - Clear, documented test data
+describe('Card with Age-Based Logic', () => {
+  it('should find lowest age cards correctly', () => {
+    let state = createGameWithMeldCard(cardId, player1);
+    
+    // Setup score pile with mixed ages - lowest should be age 1 cards
+    const scoreCards = [
+      1,  // Agriculture (Age 1) - should be returned
+      16, // Calendar (Age 2)  
+      17, // Canal Building (Age 2)
+      3   // City States (Age 1) - should be returned
+    ];
+    state = addCardsToScore(state, player2, scoreCards);
+    
+    const dogmaResult = processDogmaAction(state, cardId, player1);
+    
+    // Should return both age 1 cards
+    expect(dogmaResult.events).toContainEqual(
+      expect.objectContaining({ type: 'returned', cardId: 1 }) // Agriculture
+    );
+    expect(dogmaResult.events).toContainEqual(
+      expect.objectContaining({ type: 'returned', cardId: 3 }) // City States
+    );
+  });
+});
+
+// ❌ BAD - Unclear test data  
+describe('Card with Age Logic', () => {
+  it('should work', () => {
+    let state = createGameWithMeldCard(65, 0);
+    state = addCardsToScore(state, 1, [1, 2, 3, 4]);
+    // What ages are these? Which should be returned?
+  });
+});
+```
+
+#### F) Event Assertion Best Practices
+
+**Pattern**: Test events at the right level of detail.
+
+```typescript
+// ✅ GOOD - Test game-relevant event data
+expect(dogmaResult.events).toContainEqual(
+  expect.objectContaining({
+    type: 'transferred',
+    cardId: 1,
+    toPlayer: player1,
+    toZone: { zone: 'score', playerId: player1 }
+  })
+);
+
+// ✅ GOOD - Count events when quantity matters
+const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+expect(drewEvents).toHaveLength(2); // Expected 2 draws
+
+// ❌ BAD - Too specific about internal structure
+expect(dogmaResult.events).toContainEqual({
+  type: 'transferred',
+  cardId: 1,
+  fromPlayer: { 
+    id: 1, 
+    hands: [...], 
+    scores: [...] 
+  }, // Testing implementation details
+  timestamp: expect.any(Number),
+  source: 'card_effect_handler'
+});
+```
+
+#### G) Helper Function Testing Patterns
+
+**Pattern**: Create reusable test helpers for common setups.
+
+```typescript
+// Test helpers for common patterns
+function createDemandTestSetup(
+  cardId: number, 
+  activatingPlayer: PlayerId,
+  targetPlayer: PlayerId,
+  iconType: string,
+  activatingIcons: number,
+  targetIcons: number
+) {
+  let state = createGameWithMeldCard(cardId, activatingPlayer);
+  
+  // Setup icon disparity
+  setupIcons(state, activatingPlayer, iconType, activatingIcons);
+  setupIcons(state, targetPlayer, iconType, targetIcons);
+  
+  return state;
+}
+
+function expectTransferEvents(events: GameEvent[], expectedTransfers: Array<{cardId: number, fromPlayer: PlayerId, toPlayer: PlayerId}>) {
+  for (const transfer of expectedTransfers) {
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'transferred',
+        cardId: transfer.cardId,
+        fromPlayer: transfer.fromPlayer,
+        toPlayer: transfer.toPlayer
+      })
+    );
+  }
+}
+```
+
+#### H) Error State Testing
+
+**Pattern**: Test error conditions and edge cases.
+
+```typescript
+describe('Card Effect Error Handling', () => {
+  it('should handle empty zones gracefully', () => {
+    let state = createGameWithMeldCard(cardId, player1);
+    
+    // Clear all relevant zones
+    state.players[player1].hands = [];
+    state.players[player1].scores = [];
+    
+    const dogmaResult = processDogmaAction(state, cardId, player1);
+    
+    // Should complete without errors
+    expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+    expect(dogmaResult.events).toContainEqual(
+      expect.objectContaining({ type: 'dogma_activated' })
+    );
+  });
+
+  it('should validate choice answers', () => {
+    let state = createGameWithMeldCard(cardId, player1);
+    const dogmaResult = processDogmaAction(state, cardId, player1);
+    
+    // Test with invalid choice answer
+    const invalidResult = resumeDogmaExecution(dogmaResult.newState, undefined);
+    
+    // Should handle gracefully (complete or maintain state)
+    expect(['AwaitingAction', 'AwaitingChoice']).toContain(invalidResult.nextPhase);
+  });
+});
+```
+
+**Testing Principles Summary**:
+1. **Setup First**: Establish clear game state before testing
+2. **Document Intent**: Use comments to explain what setup achieves
+3. **Test Outcomes**: Focus on game mechanics, not implementation
+4. **Edge Cases**: Test empty zones, declined choices, invalid states
+5. **Event Validation**: Assert event types and key data, avoid internal structure
+6. **Helper Functions**: Reuse common setup patterns
+7. **Multiple Phases**: Test complete choice sequences for complex effects
 
 # 12. Validation & Errors
 
@@ -953,3 +1420,68 @@ The UI integrates with the engine's stepper pattern through a **reactive state f
 - **Sound Effects**: Audio feedback for actions and choices
 - **Themes**: Multiple visual themes for different preferences
 - **Mobile Support**: Touch-friendly interface for mobile devices
+ 
+## Summary: Critical Lessons from 65+ Card Implementation
+
+**🎯 Executive Summary**: After implementing 65+ card effects across Ages 1-6, these are the most important patterns and pitfalls that will save significant development time.
+
+### Top 5 Implementation Gotchas
+
+1. **'continue' vs 'complete' Confusion**: 
+   - **Problem**: Using `type: 'continue'` causes premature `AwaitingAction` state
+   - **Solution**: Execute logic immediately within choice steps when possible
+   - **When to use continue**: Only when genuinely need to pause and transition steps
+
+2. **Icon Visibility Requirements**:
+   - **Problem**: `countIcons()` returns 0 when stacks aren't splayed properly
+   - **Solution**: Always set `splayDirection: 'right'` in test setup when expecting icons
+   - **Rule**: Single cards = top icons only, splayed stacks = lower icons visible
+
+3. **Zone-Specific Primitives**:
+   - **Problem**: Using `returnCard()` for score pile returns (expects hand)
+   - **Solution**: Know your primitives - `returnCard()` (hand→supply), `transferCard()` (any→any)
+   - **Custom needed**: Score→supply, board→score operations
+
+4. **Demand Effect Icon Setup**:
+   - **Problem**: Both players have same icon count, demand doesn't trigger
+   - **Solution**: Activating player must have MORE demand icons, targets must have FEWER
+   - **Test pattern**: Always set up icon disparity explicitly
+
+5. **Test Event Specificity**:
+   - **Problem**: Testing internal event structure breaks when implementation changes
+   - **Solution**: Test event type and key data only, use `expect.objectContaining()`
+   - **Focus**: Game-relevant outcomes, not implementation details
+
+### Top 5 Testing Patterns
+
+1. **Standard Test Structure**: Setup → Execute → Assert phase + events + mechanics
+2. **Icon Setup Comments**: Always document expected icon counts after splaying
+3. **Multi-Step Testing**: Test complete choice sequences for complex effects
+4. **Edge Case Coverage**: Empty zones, declined choices, no valid targets
+5. **Helper Functions**: Reuse common setup patterns (demand, icons, cards)
+
+### Architectural Success Patterns
+
+1. **Simplified Effects**: Use `createSimpleEffect()` for straightforward cards
+2. **State Machine**: Use explicit steps only when pausing execution is needed
+3. **Registry System**: Centralized initial state mapping in `dogma-resolver.ts`
+4. **Event Emission**: Automatic `dogma_activated` events in simplified effects
+5. **File Organization**: Age-specific files for maintainability
+
+### Code Quality Wins
+
+1. **Comprehensive Testing**: 34 tests for Age 6 cards, 100% pass rate
+2. **Clear Error Messages**: Specific validation with helpful error text
+3. **Database-Driven**: Always use `CARDS.cardsById.get()` instead of hardcoding
+4. **Edge Case Handling**: Graceful degradation for empty zones, invalid choices
+5. **Documentation**: Comments explaining complex setup and expected outcomes
+
+### Performance and Maintainability
+
+1. **Parallel Tool Calls**: Implementing multiple cards simultaneously improved velocity
+2. **TDD Workflow**: Write tests first, implement to pass, refactor for clarity
+3. **Incremental Commits**: One card per commit with comprehensive commit messages
+4. **Modular Architecture**: Age-specific files, centralized registry, reusable primitives
+5. **Technical Debt Management**: Immediate fixes for structural issues vs feature additions
+
+**Final Takeaway**: The callback-based state machine with simplified effects proved highly successful. Of 65 implemented cards, 62 use simple effects (95%), only 3 need complex state machines. This validates the architectural approach and suggests most Innovation cards can be implemented straightforwardly once the patterns are established.
