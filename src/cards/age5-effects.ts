@@ -15,7 +15,9 @@ import {
   returnCard,
   revealCard,
   meldCard,
-  findNonGreenFactoryCards
+  findNonGreenFactoryCards,
+  moveCardBetweenZones,
+  cardHasIcon
 } from '../engine/state-manipulation.js';
 import { emitEvent } from '../engine/events.js';
 import { CARDS } from '../cards/database.js';
@@ -147,6 +149,90 @@ export const bankingEffect = createSimpleEffect((context: DogmaContext) => {
     // For now, auto-splay for testing purposes
     // In a real implementation, this would be a choice
     newState = splayColor(newState, activatingPlayer, 'Green', 'right', events);
+  }
+  
+  return [newState, events];
+});
+
+// The Pirate Code (ID 52) - Demand transfer two value ≤4 from score, score Crown card
+export const piratecodeEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+  let anyTransferred = false;
+
+  // Find players with fewer Crown icons than the activating player
+  const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
+  
+  // Execute demand effect for affected players
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerCrowns = countIcons(gameData, typedPlayerId, 'Crown');
+      if (playerCrowns < activatingPlayerCrowns) {
+        const player = newState.players[typedPlayerId]!;
+        
+        // Find cards of value 4 or less in score pile
+        const validCards = player.scores.filter(cardId => {
+          const card = CARDS.cardsById.get(cardId);
+          return card && card.age <= 4;
+        });
+        
+        // Transfer up to 2 cards
+        const cardsToTransfer = validCards.slice(0, 2);
+        for (const cardId of cardsToTransfer) {
+          newState = transferCard(newState, typedPlayerId, activatingPlayer, cardId, 'score', 'score', events);
+          anyTransferred = true;
+        }
+      }
+    }
+  }
+  
+  // If any cards were transferred, score the lowest top card with Crown
+  if (anyTransferred) {
+    const player = newState.players[activatingPlayer]!;
+    const topCardsWithCrowns: { cardId: CardId; age: number }[] = [];
+    
+    // Find all top cards with Crown icons
+    for (const colorStack of player.colors) {
+      if (colorStack.cards.length > 0) {
+        const topCardId = colorStack.cards[colorStack.cards.length - 1]!;
+        const card = CARDS.cardsById.get(topCardId);
+        if (card && cardHasIcon(topCardId, 'Crown')) {
+          topCardsWithCrowns.push({ cardId: topCardId, age: card.age });
+        }
+      }
+    }
+    
+    if (topCardsWithCrowns.length > 0) {
+      // Find the lowest age Crown card
+      topCardsWithCrowns.sort((a, b) => a.age - b.age);
+      const lowestCrownCard = topCardsWithCrowns[0]!;
+      
+      // Score it manually (remove from board, add to score pile)
+      const playerRef = newState.players[activatingPlayer]!;
+      
+      // Remove from board
+      for (const colorStack of playerRef.colors) {
+        const cardIndex = colorStack.cards.indexOf(lowestCrownCard.cardId);
+        if (cardIndex !== -1) {
+          colorStack.cards.splice(cardIndex, 1);
+          break;
+        }
+      }
+      
+      // Add to score pile
+      playerRef.scores.push(lowestCrownCard.cardId);
+      
+      // Emit scored event
+      const scoredEvent = emitEvent(newState, 'scored', {
+        playerId: activatingPlayer,
+        cardIds: [lowestCrownCard.cardId],
+        pointsGained: 0, // Will be calculated later
+        fromZone: { playerId: activatingPlayer, zone: 'board' },
+      });
+      events.push(scoredEvent);
+    }
   }
   
   return [newState, events];

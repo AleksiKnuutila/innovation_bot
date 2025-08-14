@@ -394,4 +394,132 @@ describe('Age 5 Card Effects', () => {
     });
   });
 
+  describe('The Pirate Code (ID 52)', () => {
+    it('should execute demand to transfer two cards of value 4 or less from score pile', () => {
+      let state = createGameWithMeldCard(52, player1); // Meld The Pirate Code (red)
+      
+      // Give activating player more Crown icons
+      // The Pirate Code has 2 Crown icons (middle, right)
+      state.players[player1].colors.push({
+        color: 'Purple',
+        cards: [53], // Societies (1 Crown)
+        splayDirection: 'right' // Make icons visible - now player1 has 3 total Crown icons
+      });
+      
+      // Give target player fewer Crown icons and score cards to transfer
+      state = addCardsToScore(state, player2, [1, 2, 16, 17]); 
+      // Ages: 1(Agriculture), 1(Archery), 2(Calendar), 2(Canal Building)
+      // Two cards ≤4: Agriculture and Archery (both age 1)
+      
+      const dogmaResult = processDogmaAction(state, 52, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 1 }) // Agriculture
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 2 }) // Archery
+      );
+      
+      // Should score lowest Crown card from activating player's board
+      // The Pirate Code itself has Crown icons
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored', cardIds: [52] }) // The Pirate Code
+      );
+    });
+
+    it('should complete without scoring if no cards transferred', () => {
+      let state = createGameWithMeldCard(52, player1); // Meld The Pirate Code
+      
+      // Give both players equal Crown icons so no demand occurs
+      // The Pirate Code has 2 Crown icons (middle, right)
+      state.players[player2].colors.push({
+        color: 'Green',
+        cards: [19], // Currency has 2 Crown icons (left, right)
+        splayDirection: 'right' // Make icons visible
+      });
+      
+      const dogmaResult = processDogmaAction(state, 52, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT score any cards since no transfer occurred
+      const scoredEvents = dogmaResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(0);
+    });
+
+    it('should only transfer cards of value 4 or less', () => {
+      let state = createGameWithMeldCard(52, player1); // Meld The Pirate Code
+      
+      // Give activating player more Crown icons
+      state.players[player1].colors.push({
+        color: 'Purple',
+        cards: [53], // Societies (1 Crown)
+        splayDirection: 'right'
+      });
+      
+      // Give target player score cards with mixed values
+      state = addCardsToScore(state, player2, [1, 49, 16, 55]); 
+      // Ages: 1(Agriculture), 5(Coal), 2(Calendar), 5(Steam Engine)
+      // Only Agriculture(1) and Calendar(2) are ≤4
+      
+      const dogmaResult = processDogmaAction(state, 52, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should transfer the two cards ≤4
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 1 }) // Agriculture
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'transferred', cardId: 16 }) // Calendar
+      );
+      
+      // Should NOT transfer the age 5 cards
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(2);
+      expect(transferEvents.some(e => e.cardId === 49)).toBe(false); // Coal not transferred
+      expect(transferEvents.some(e => e.cardId === 55)).toBe(false); // Steam Engine not transferred
+    });
+
+    it('should score lowest Crown card when transfers occur', () => {
+      let state = createGameWithMeldCard(52, player1); // Meld The Pirate Code
+      
+      // Add another Crown card to board to test "lowest" selection
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [12], // Sailing (age 1, Crown icon)
+        splayDirection: undefined
+      });
+      
+      // Give activating player more Crown icons  
+      state.players[player1].colors.push({
+        color: 'Purple',
+        cards: [53], // Societies (age 5, Crown icon) 
+        splayDirection: 'right'
+      });
+      
+      // Give target player score cards to transfer
+      state = addCardsToScore(state, player2, [1, 2]);
+      
+      const dogmaResult = processDogmaAction(state, 52, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should score the lowest Crown card (Sailing, age 1)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored', cardIds: [12] }) // Sailing (lowest age)
+      );
+      
+      // Should NOT score higher age Crown cards
+      const scoredEvents = dogmaResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(1);
+      expect(scoredEvents.some(e => e.cardIds.includes(52))).toBe(false); // The Pirate Code not scored
+      expect(scoredEvents.some(e => e.cardIds.includes(53))).toBe(false); // Societies not scored
+    });
+  });
+
 }); 
