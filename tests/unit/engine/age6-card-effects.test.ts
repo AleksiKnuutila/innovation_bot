@@ -177,4 +177,43 @@ describe('Age 6 Card Effects', () => {
       );
     });
   });
+
+  describe('Machine Tools (ID 63)', () => {
+    it('should draw and score a card equal to the highest score card value', () => {
+      let state = createGameWithMeldCard(63, player1); // Meld Machine Tools
+      
+      // Add cards to score pile
+      state = addCardsToScore(state, player1, [1, 16, 3]); // Writing (age 1), Calendar (age 2), City States (age 1)
+      
+      const dogmaResult = processDogmaAction(state, 63, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should draw and score a card of age 2 (highest score card is Calendar with age 2)
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'drew', fromAge: 2, requestedAge: 2 })
+      );
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'scored' })
+      );
+    });
+
+    it('should complete without action if no score cards', () => {
+      let state = createGameWithMeldCard(63, player1); // Just Machine Tools
+      
+      const dogmaResult = processDogmaAction(state, 63, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      // Should not draw or score anything
+      const drewEvents = dogmaResult.events.filter(e => e.type === 'drew');
+      expect(drewEvents).toHaveLength(0);
+      const scoredEvents = dogmaResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(0);
+    });
+  });
 }); 

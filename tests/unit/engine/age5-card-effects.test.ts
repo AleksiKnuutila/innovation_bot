@@ -204,6 +204,10 @@ describe('Age 5 Card Effects', () => {
     it('should complete without action if no hand cards', () => {
       let state = createGameWithMeldCard(50, player1); // Just Measurement
       
+      // Clear all players' hands to ensure no hand cards
+      state.players[player1].hands = [];
+      state.players[player2].hands = [];
+      
       const dogmaResult = processDogmaAction(state, 50, player1);
       
       expect(dogmaResult.nextPhase).toBe('AwaitingAction');

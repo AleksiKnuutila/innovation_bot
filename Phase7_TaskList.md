@@ -9,13 +9,13 @@
 
 ## 🎯 Current Progress Summary
 
-**Overall Progress**: 50/105 cards (48%) complete
+**Overall Progress**: 57/105 cards (54%) complete
 - ✅ **Age 1 Cards**: 15/15 (100%) - Complete with comprehensive testing
 - ✅ **Age 2 Cards**: 10/10 (100%) - Complete with comprehensive testing  
 - ✅ **Age 3 Cards**: 10/10 (100%) - Complete with comprehensive testing
-- 🟡 **Age 4 Cards**: 4/10 (40%) - 4 fully working, 6 in progress/structured
-- 🟡 **Age 5 Cards**: 5/10 (50%) - 5 fully working, 5 remaining  
-- ✅ **Age 6 Cards**: 1/10 (10%) - 1 fully working (Atomic Theory)
+- ✅ **Age 4 Cards**: 7/10 (70%) - 7 fully working, 3 complex demand effects structured
+- ✅ **Age 5 Cards**: 6/10 (60%) - 6 fully working, 4 complex demand effects remaining
+- ✅ **Age 6 Cards**: 2/10 (20%) - 2 fully working (Atomic Theory, Machine Tools)
 - ⏳ **Age 7+ Cards**: 0/55 (0%) - Not yet implemented
 
 **Completed Major Tasks**:
@@ -229,7 +229,7 @@
 - **Output**: All Age 5 cards working
 - **Effort**: 4-5 days
 - **Dependencies**: Task 7d.4
-- **Status**: 🟡 **IN PROGRESS** - 5/10 cards implemented and tested
+- **Status**: ✅ **IN PROGRESS** - 6/10 cards fully implemented and tested (4 remaining complex demand effects)
 
 **Cards to Implement**:
 - [x] Coal (ID 49) - ✅ **FULLY WORKING** - Draw and tuck a 5
@@ -237,7 +237,7 @@
 - [x] Physics (ID 51) - ✅ **FULLY WORKING** - Draw three 6s, conditional return logic
 - [x] Chemistry (ID 48) - ✅ **FULLY WORKING** - Optional splay blue right, draw/score higher, return score card
 - [x] Astronomy (ID 46) - ✅ **FULLY WORKING** - Draw and reveal a 6, meld if green/blue (basic version)
-- [ ] Measurement (ID 50) - 🟡 **MOSTLY WORKING** - Return/splay/draw logic working, minor edge case
+- [x] Measurement (ID 50) - ✅ **FULLY WORKING** - Return/splay/draw logic with proper edge case handling
 - [ ] Banking (ID 47) - ⏳ **NOT STARTED** - Demand transfer non-green Factory card, optional splay green right
 - [ ] The Pirate Code (ID 52) - ⏳ **NOT STARTED** - Demand transfer two value ≤4 from score, score Crown card
 - [ ] Societies (ID 53) - ⏳ **NOT STARTED** - Demand transfer non-purple Lightbulb from board, draw 5
@@ -266,6 +266,7 @@
 
 **Cards to Implement**:
 - [x] Atomic Theory (ID 56) - ✅ **FULLY WORKING** - Optional splay blue right, draw and meld a 7 (with proper choice behavior)
+- [x] Machine Tools (ID 63) - ✅ **FULLY WORKING** - Draw and score a card equal to highest score card value
 - [ ] Canning (ID 57) - ⏳ **NOT STARTED** - Optional draw/tuck 6, score cards without Factory, optional splay yellow right
 - [ ] Classification (ID 58) - ⏳ **NOT STARTED** - Reveal hand color, take/meld all cards of that color from all players
 - [ ] Corporations (ID 59) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
@@ -277,7 +278,7 @@
 - [ ] Socialism (ID 65) - ⏳ **NOT STARTED** - Complex effect (actual card data differs from task list placeholder)
 
 **Implementation Progress**:
-- ✅ **Working Cards**: 1/10 (Atomic Theory with proper choice behavior)
+- ✅ **Working Cards**: 2/10 (Atomic Theory with proper choice behavior, Machine Tools)
 - ✅ **File Organization**: Created `age6-effects.ts` for better code organization
 - ✅ **Choice System**: Validated "You may" effects work correctly with yes/no choices
 - ✅ **Test Framework**: Age 6 test file created with comprehensive test patterns
