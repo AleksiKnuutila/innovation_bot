@@ -192,4 +192,125 @@ describe('Age 7 Card Effects', () => {
     });
   });
 
+  describe('Combustion (ID 67)', () => {
+    it('should execute demand to transfer two cards from score pile', () => {
+      let state = createGameWithMeldCard(67, player1); // Meld Combustion (red)
+      
+      // Give activating player more Crown icons
+      // Combustion has 2 Crown icons (left, middle)
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [4], // Clothing has 1 Crown icon (left)
+        splayDirection: 'right' // Now player1 has 3 total Crown icons
+      });
+      
+      // Give target player fewer Crown icons and score cards to transfer
+      state = addCardsToScore(state, player2, [1, 2, 16, 17]); 
+      // Ages: Agriculture, Archery, Calendar, Canal Building
+      
+      const dogmaResult = processDogmaAction(state, 67, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should transfer exactly 2 cards from score pile
+      const transferEvents = dogmaResult.events.filter(e => 
+        e.type === 'transferred' && e.fromZone?.zone === 'score'
+      );
+      expect(transferEvents).toHaveLength(2);
+      
+      // Cards should be transferred to activating player's score pile
+      expect(transferEvents[0]).toMatchObject({
+        type: 'transferred',
+        toPlayer: player1,
+        toZone: { zone: 'score' }
+      });
+      expect(transferEvents[1]).toMatchObject({
+        type: 'transferred',
+        toPlayer: player1,
+        toZone: { zone: 'score' }
+      });
+    });
+
+    it('should transfer fewer than 2 cards if target has insufficient score cards', () => {
+      let state = createGameWithMeldCard(67, player1); // Meld Combustion
+      
+      // Give activating player more Crown icons
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [4], // Clothing
+        splayDirection: 'right'
+      });
+      
+      // Give target player only 1 score card
+      state = addCardsToScore(state, player2, [1]); // Only Agriculture
+      
+      const dogmaResult = processDogmaAction(state, 67, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      
+      // Should transfer only 1 card (all that's available)
+      const transferEvents = dogmaResult.events.filter(e => 
+        e.type === 'transferred' && e.fromZone?.zone === 'score'
+      );
+      expect(transferEvents).toHaveLength(1);
+      expect(transferEvents[0]).toMatchObject({
+        type: 'transferred',
+        cardId: 1 // Agriculture
+      });
+    });
+
+    it('should complete without transfer if target has no score cards', () => {
+      let state = createGameWithMeldCard(67, player1); // Meld Combustion
+      
+      // Give activating player more Crown icons
+      state.players[player1].colors.push({
+        color: 'Green',
+        cards: [4], // Clothing
+        splayDirection: 'right'
+      });
+      
+      // Target player has no score cards (default)
+      
+      const dogmaResult = processDogmaAction(state, 67, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT transfer anything
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+    });
+
+    it('should complete without demand if no players have fewer Crown icons', () => {
+      let state = createGameWithMeldCard(67, player1); // Meld Combustion
+      
+      // Give both players equal Crown icons
+      // Combustion has 2 Crown icons (left, middle)
+      state.players[player2].colors.push({
+        color: 'Green',
+        cards: [19], // Currency has 2 Crown icons (left, right)
+        splayDirection: 'right'
+      });
+      
+      // Give target player score cards (but no demand should occur)
+      state = addCardsToScore(state, player2, [1, 2]);
+      
+      const dogmaResult = processDogmaAction(state, 67, player1);
+      
+      expect(dogmaResult.nextPhase).toBe('AwaitingAction');
+      expect(dogmaResult.events).toContainEqual(
+        expect.objectContaining({ type: 'dogma_activated' })
+      );
+      
+      // Should NOT transfer anything since no demand occurred
+      const transferEvents = dogmaResult.events.filter(e => e.type === 'transferred');
+      expect(transferEvents).toHaveLength(0);
+    });
+  });
+
 }); 

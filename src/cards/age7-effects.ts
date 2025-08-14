@@ -109,8 +109,36 @@ export const bicycleEffect = createSimpleEffect((context: DogmaContext) => {
   return [newState, events];
 });
 
+// Combustion (ID 67) - Demand transfer two cards from score pile
+export const combustionEffect = createSimpleEffect((context: DogmaContext) => {
+  const { gameData, activatingPlayer } = context;
+  let newState = gameData;
+  const events: GameEvent[] = [];
+
+  // Find players with fewer Crown icons than the activating player
+  const activatingPlayerCrowns = countIcons(gameData, activatingPlayer, 'Crown');
+  
+  // Execute demand effect for affected players
+  for (let playerId = 0; playerId < 2; playerId++) {
+    const typedPlayerId = playerId as PlayerId;
+    if (typedPlayerId !== activatingPlayer) {
+      const playerCrowns = countIcons(gameData, typedPlayerId, 'Crown');
+      if (playerCrowns < activatingPlayerCrowns) {
+        const player = newState.players[typedPlayerId]!;
+        
+        // Transfer up to 2 cards from score pile
+        const cardsToTransfer = player.scores.slice(0, 2);
+        for (const cardId of cardsToTransfer) {
+          newState = transferCard(newState, typedPlayerId, activatingPlayer, cardId, 'score', 'score', events);
+        }
+      }
+    }
+  }
+  
+  return [newState, events];
+});
+
 // TODO: Add other Age 7 effects here as they are implemented
-// - combustionEffect
 // - electricityEffect
 // - evolutionEffect
 // - explosivesEffect
