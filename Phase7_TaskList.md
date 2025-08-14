@@ -239,9 +239,9 @@
 - [x] Astronomy (ID 46) - ✅ **FULLY WORKING** - Draw and reveal a 6, meld if green/blue (basic version)
 - [x] Measurement (ID 50) - ✅ **FULLY WORKING** - Return/splay/draw logic with proper edge case handling
 - [x] Banking (ID 47) - ✅ **FULLY WORKING** - Demand transfer non-green Factory card, optional splay green right (4/4 tests passing)
-- [ ] The Pirate Code (ID 52) - ⏳ **NOT STARTED** - Demand transfer two value ≤4 from score, score Crown card
-- [ ] Societies (ID 53) - ⏳ **NOT STARTED** - Demand transfer non-purple Lightbulb from board, draw 5
-- [ ] Statistics (ID 54) - ⏳ **NOT STARTED** - Demand draw highest score card, repeat if 1 hand card, optional splay yellow
+- [x] The Pirate Code (ID 52) - ✅ **FULLY WORKING** - Demand transfer two value ≤4 from score, score Crown card (4/4 tests passing)  
+- [x] Societies (ID 53) - ✅ **FULLY WORKING** - Demand transfer non-purple Lightbulb from board, draw 5 (4/4 tests passing)
+- [x] Statistics (ID 54) - ✅ **FULLY WORKING** - Demand draw highest score card, repeat if 1 hand card, optional splay yellow (4/4 tests passing)
 
 ### Task 7d.6: Implement Age 6 Cards (10 cards)
 - **Description**: Implement all Age 6 card effects
