@@ -1121,3 +1121,222 @@ export function exchangeWithOpponent(
   
   return newState;
 } 
+
+// Helper function to check if a card has a specific icon
+export function cardHasIcon(cardId: CardId, icon: string): boolean {
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) return false;
+  
+  const positions = card.positions;
+  return positions.top === icon || 
+         positions.left === icon || 
+         positions.middle === icon || 
+         positions.right === icon;
+}
+
+// Helper function to count icons on a specific card
+export function countIconsOnCard(cardId: CardId, icon: string): number {
+  const card = CARDS.cardsById.get(cardId);
+  if (!card) return 0;
+  
+  let count = 0;
+  const positions = card.positions;
+  if (positions.top === icon) count++;
+  if (positions.left === icon) count++;
+  if (positions.middle === icon) count++;
+  if (positions.right === icon) count++;
+  
+  return count;
+}
+
+// Helper function to find cards with specific icons in a player's hand
+export function findCardsWithIcon(
+  gameData: GameData,
+  playerId: PlayerId,
+  icon: string,
+  zone: 'hand' | 'score' | 'board' = 'hand'
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  let cardsToSearch: CardId[] = [];
+  
+  switch (zone) {
+    case 'hand':
+      cardsToSearch = player.hands;
+      break;
+    case 'score':
+      cardsToSearch = player.scores;
+      break;
+    case 'board':
+      // Get all top cards from board
+      cardsToSearch = player.colors
+        .filter(stack => stack.cards.length > 0)
+        .map(stack => stack.cards[stack.cards.length - 1]!);
+      break;
+  }
+  
+  return cardsToSearch.filter(cardId => cardHasIcon(cardId, icon));
+}
+
+// Helper function to find cards with specific color and icon combination
+export function findCardsWithColorAndIcon(
+  gameData: GameData,
+  playerId: PlayerId,
+  color: string | null, // null means any color
+  icon: string,
+  zone: 'hand' | 'score' | 'board' = 'hand',
+  excludeColor?: string // optional color to exclude (e.g., "non-green")
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  let cardsToSearch: CardId[] = [];
+  
+  switch (zone) {
+    case 'hand':
+      cardsToSearch = player.hands;
+      break;
+    case 'score':
+      cardsToSearch = player.scores;
+      break;
+    case 'board':
+      // Get all top cards from board
+      cardsToSearch = player.colors
+        .filter(stack => stack.cards.length > 0)
+        .map(stack => stack.cards[stack.cards.length - 1]!);
+      break;
+  }
+  
+  return cardsToSearch.filter(cardId => {
+    const card = CARDS.cardsById.get(cardId);
+    if (!card) return false;
+    
+    // Check icon requirement
+    if (!cardHasIcon(cardId, icon)) return false;
+    
+    // Check color requirement
+    if (color !== null && card.color !== color) return false;
+    
+    // Check exclude color requirement (e.g., "non-green")
+    if (excludeColor && card.color === excludeColor) return false;
+    
+    return true;
+  });
+}
+
+// Helper function to find cards with specific age/value constraints
+export function findCardsWithValueConstraint(
+  gameData: GameData,
+  playerId: PlayerId,
+  constraint: 'highest' | 'lowest' | { min?: number; max?: number; exact?: number },
+  zone: 'hand' | 'score' | 'board' = 'hand',
+  count?: number // how many cards to return (e.g., "two highest")
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  let cardsToSearch: CardId[] = [];
+  
+  switch (zone) {
+    case 'hand':
+      cardsToSearch = player.hands;
+      break;
+    case 'score':
+      cardsToSearch = player.scores;
+      break;
+    case 'board':
+      // Get all top cards from board
+      cardsToSearch = player.colors
+        .filter(stack => stack.cards.length > 0)
+        .map(stack => stack.cards[stack.cards.length - 1]!);
+      break;
+  }
+  
+  // Filter by value constraints
+  let filteredCards = cardsToSearch;
+  
+  if (typeof constraint === 'object') {
+    filteredCards = cardsToSearch.filter(cardId => {
+      const card = CARDS.cardsById.get(cardId);
+      if (!card) return false;
+      
+      if (constraint.min !== undefined && card.age < constraint.min) return false;
+      if (constraint.max !== undefined && card.age > constraint.max) return false;
+      if (constraint.exact !== undefined && card.age !== constraint.exact) return false;
+      
+      return true;
+    });
+  } else {
+    // Sort by age for highest/lowest
+    const sortedCards = cardsToSearch.map(cardId => {
+      const card = CARDS.cardsById.get(cardId);
+      return { cardId, age: card?.age || 0 };
+    }).sort((a, b) => {
+      return constraint === 'highest' ? b.age - a.age : a.age - b.age;
+    });
+    
+    if (constraint === 'highest' || constraint === 'lowest') {
+      if (sortedCards.length === 0) return [];
+      
+      const targetAge = sortedCards[0]!.age;
+      filteredCards = sortedCards
+        .filter(item => item.age === targetAge)
+        .map(item => item.cardId);
+    }
+  }
+  
+  // Apply count limit if specified
+  if (count !== undefined && count > 0) {
+    return filteredCards.slice(0, count);
+  }
+  
+  return filteredCards;
+}
+
+// Helper function to find top cards from board with specific color
+export function findTopCardsWithColor(
+  gameData: GameData,
+  playerId: PlayerId,
+  color: string,
+  excludeColor?: string
+): CardId[] {
+  const player = gameData.players[playerId];
+  if (!player) return [];
+  
+  const topCards: CardId[] = [];
+  
+  for (const stack of player.colors) {
+    if (stack.cards.length === 0) continue;
+    
+    const topCard = stack.cards[stack.cards.length - 1]!;
+    const card = CARDS.cardsById.get(topCard);
+    if (!card) continue;
+    
+    // Check color requirement
+    if (color && card.color !== color) continue;
+    
+    // Check exclude color requirement
+    if (excludeColor && card.color === excludeColor) continue;
+    
+    topCards.push(topCard);
+  }
+  
+  return topCards;
+}
+
+// Helper function to find all non-green top cards with Factory icons (common pattern)
+export function findNonGreenFactoryCards(
+  gameData: GameData,
+  playerId: PlayerId
+): CardId[] {
+  return findCardsWithColorAndIcon(gameData, playerId, null, 'Factory', 'board', 'Green');
+}
+
+// Helper function to find all cards with Crown icons in hand (common pattern)
+export function findCrownCardsInHand(
+  gameData: GameData,
+  playerId: PlayerId
+): CardId[] {
+  return findCardsWithIcon(gameData, playerId, 'Crown', 'hand');
+} 

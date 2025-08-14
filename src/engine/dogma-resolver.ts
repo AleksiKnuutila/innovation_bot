@@ -348,12 +348,7 @@ function getInitialState(cardName: string): any {
     case 'Steam Engine':
       return { step: 'start' }; // Simple effect
     case 'Banking':
-      return {
-        step: 'execute_demand',
-        affectedPlayers: [],
-        currentPlayerIndex: 0,
-        anyTransferred: false
-      };
+      return { step: 'start' }; // Simple effect
       
     default:
       return { step: 'start' };
