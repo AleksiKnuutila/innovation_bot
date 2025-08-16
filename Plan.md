@@ -1,7 +1,3 @@
-Here's a cleaned-up plan that uses a **simplified state machine** architecture instead of complex effect queues.
-
-**Note**: Throughout implementation, use the vb-implementation directory as a behavioral reference for card effects and rule implementations. The VB code has working implementations of all card effects and e
-
 # ✅ Phase 0 — Repo & Workspace (COMPLETED)
 
 * ✅ Create single TypeScript package with clear module structure
