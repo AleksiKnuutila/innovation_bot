@@ -256,9 +256,34 @@ export function resumeDogmaExecution(
     case 'complete':
       const { currentEffect: _, ...completeState } = result.newState;
       
+      // Handle sharing for non-demand choice-based effects
+      let finalState = completeState;
+      let finalEvents = result.events;
+      
+      if (result.effectType === 'non-demand') {
+        // Recreate context to get sharing players
+        const sharingContext = createDogmaContext(gameData, currentEffect.cardId, 1, activatingPlayer);
+        
+        if (sharingContext.sharingPlayers && sharingContext.sharingPlayers.length > 0) {
+          const sharingResult = processSharingEffects(finalState, currentEffect.cardId, sharingContext.sharingPlayers);
+          finalState = sharingResult.newState;
+          finalEvents = [...finalEvents, ...sharingResult.events];
+          
+          // If sharing led to changes, emit event (free draw handled later)
+          if (sharingResult.changesMade) {
+            const freeDrawEvent = emitEvent(finalState, 'shared_effect', {
+              playerId: activatingPlayer,
+              cardId: currentEffect.cardId,
+              reason: 'sharing_effects_triggered_changes'
+            });
+            finalEvents.push(freeDrawEvent);
+          }
+        }
+      }
+      
       return {
-        newState: completeState,
-        events: result.events,
+        newState: finalState,
+        events: finalEvents,
         nextPhase: 'AwaitingAction'
       };
   }

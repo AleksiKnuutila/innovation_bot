@@ -739,7 +739,12 @@ export function countIcons(gameData: GameData, playerId: PlayerId, icon: string)
  * Returns array of position keys that are currently visible
  */
 function getVisibleIconPositions(colorStack: PlayerColorStack): Array<'top' | 'left' | 'middle' | 'right'> {
-  // Check splay direction first - it overrides card count
+  // For single cards, all positions are visible
+  if (colorStack.cards.length <= 1) {
+    return ['top', 'left', 'middle', 'right'];
+  }
+  
+  // For multiple cards, check splay direction
   switch (colorStack.splayDirection) {
     case 'left':
       // Left splay reveals 1 additional icon (left position)
@@ -751,7 +756,7 @@ function getVisibleIconPositions(colorStack: PlayerColorStack): Array<'top' | 'l
       // Up splay reveals 3 additional icons (left, middle, right)
       return ['top', 'left', 'middle', 'right'];
     default:
-      // No splay - only top position is visible
+      // Multiple cards with no splay - only top card's top position is visible
       return ['top'];
   }
 }
