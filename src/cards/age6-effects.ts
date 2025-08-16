@@ -838,6 +838,7 @@ function checkGreenChoiceInternal(
 // Democracy (ID 59) - Optional return cards, conditional draw/score 8 if most returned
 interface DemocracyState {
   step: 'check_hand' | 'waiting_return_choice';
+  returnsPerPlayer?: Record<PlayerId, number>; // Track returns for each player in this Democracy activation
 }
 
 export function democracyEffect(
@@ -857,9 +858,29 @@ export function democracyEffect(
       const player = gameData.players[activatingPlayer]!;
       
       if (player.hands.length === 0) {
-        // No cards in hand, complete immediately
+        // No cards in hand, record 0 returns for this player and complete
+        const globalState = gameData.currentEffect?.state || {};
+        const returnsPerPlayer = globalState.democracyReturns || {};
+        returnsPerPlayer[activatingPlayer] = 0;
+        
+        // Update global state
+        newState = {
+          ...newState,
+          currentEffect: {
+            ...newState.currentEffect!,
+            state: {
+              ...globalState,
+              democracyReturns: returnsPerPlayer
+            }
+          }
+        };
+        
         return { type: 'complete', newState, events, effectType: 'non-demand' };
       }
+
+      // Initialize or get existing returns tracking from global state
+      const globalState = gameData.currentEffect?.state || {};
+      const returnsPerPlayer = globalState.democracyReturns || {};
 
       // Offer optional choice to return any number of cards from hand
       return {
@@ -878,41 +899,79 @@ export function democracyEffect(
         },
         nextState: {
           ...state,
-          step: 'waiting_return_choice'
+          step: 'waiting_return_choice',
+          returnsPerPlayer
         }
       };
     }
 
     case 'waiting_return_choice': {
       if (!choiceAnswer || choiceAnswer.type !== 'select_cards') {
-        // No choice made, complete
+        // No choice made, record 0 returns and complete
+        const globalState = gameData.currentEffect?.state || {};
+        const returnsPerPlayer = globalState.democracyReturns || {};
+        returnsPerPlayer[activatingPlayer] = 0;
+        
+        // Update global state
+        newState = {
+          ...newState,
+          currentEffect: {
+            ...newState.currentEffect!,
+            state: {
+              ...globalState,
+              democracyReturns: returnsPerPlayer
+            }
+          }
+        };
+        
         return { type: 'complete', newState, events, effectType: 'non-demand' };
       }
 
       const returnedCards = choiceAnswer.selectedCards;
       
-      if (returnedCards.length === 0) {
-        // Player chose not to return any cards, complete
-        return { type: 'complete', newState, events, effectType: 'non-demand' };
-      }
-
-      // Return the selected cards
-      for (const cardId of returnedCards) {
-        const card = CARDS.cardsById.get(cardId);
-        if (!card) {
-          throw new Error(`Card ${cardId} not found in database`);
-        }
-        newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
-      }
-
-      // Check if this player returned more cards than any other player
-      // For simplicity, use a threshold approach: need to return 2+ cards to get bonus
-      // In a full implementation, this would track Democracy returns per player per phase
-      const cardsReturnedThisActivation = returnedCards.length;
+      // Get existing returns tracking from global state
+      const globalState = gameData.currentEffect?.state || {};
+      const returnsPerPlayer = globalState.democracyReturns || {};
       
-      // Simplified rule: must return 2 or more cards to get the bonus
-      // This represents "more than any other player" in a simplified way
-      if (cardsReturnedThisActivation >= 2) {
+      if (returnedCards.length === 0) {
+        // Player chose not to return any cards, record 0 returns
+        returnsPerPlayer[activatingPlayer] = 0;
+      } else {
+        // Return the selected cards
+        for (const cardId of returnedCards) {
+          const card = CARDS.cardsById.get(cardId);
+          if (!card) {
+            throw new Error(`Card ${cardId} not found in database`);
+          }
+          newState = returnCard(newState, activatingPlayer, cardId, card.age, events);
+        }
+        
+        // Track the number of cards returned by this player
+        returnsPerPlayer[activatingPlayer] = returnedCards.length;
+      }
+
+      // Update global state with new returns
+      newState = {
+        ...newState,
+        currentEffect: {
+          ...newState.currentEffect!,
+          state: {
+            ...globalState,
+            democracyReturns: returnsPerPlayer
+          }
+        }
+      };
+
+      // Check if this player returned more cards than any other player in this Democracy activation
+      const thisPlayerReturns = returnsPerPlayer[activatingPlayer] || 0;
+      const otherPlayerReturns = Object.entries(returnsPerPlayer)
+        .filter(([playerId]) => parseInt(playerId) !== activatingPlayer)
+        .map(([, returns]) => returns);
+      
+      const maxOtherReturns = Math.max(0, ...otherPlayerReturns);
+      
+      // Player gets bonus if they returned more cards than any other player AND returned at least 1 card
+      if (thisPlayerReturns > 0 && thisPlayerReturns > maxOtherReturns) {
         // Draw and score an 8
         newState = drawAndScore(newState, activatingPlayer, 8, 1, events);
       }

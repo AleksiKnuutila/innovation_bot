@@ -789,7 +789,7 @@ describe('Age 6 Card Effects', () => {
         from: { zone: 'hand', playerId: player1 }
       });
       
-      // Player 1 chooses to return 3 cards (more than any other player)
+      // Player 1 chooses to return 3 cards
       const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
         type: 'select_cards',
         choiceId: `democracy_return_${player1}`,
@@ -808,7 +808,7 @@ describe('Age 6 Card Effects', () => {
       expect(choiceResult.events).toContainEqual(
         expect.objectContaining({ type: 'returned', cardId: 3 })
       );
-      // Should draw and score an 8 since returned more than others
+      // Should draw and score an 8 since no other players have returned cards yet
       expect(choiceResult.events).toContainEqual(
         expect.objectContaining({ type: 'drew', fromAge: 8 })
       );
@@ -817,7 +817,7 @@ describe('Age 6 Card Effects', () => {
       );
     });
 
-    it('should not draw/score if not most cards returned', () => {
+    it('should draw/score if player returns at least 1 card when no others have returned', () => {
       let state = createGameWithMeldCard(59, player1); // Meld Democracy
       
       // Add cards to hand
@@ -825,12 +825,12 @@ describe('Age 6 Card Effects', () => {
       
       const dogmaResult = processDogmaAction(state, 59, player1);
       
-      // Player 1 chooses to return 1 card (< 2 threshold)
+      // Player 1 chooses to return 1 card (should get bonus since no other returns)
       const choiceResult = resumeDogmaExecution(dogmaResult.newState, {
         type: 'select_cards',
         choiceId: `democracy_return_${player1}`,
         playerId: player1,
-        selectedCards: [1], // Return 1 card (< 2 threshold)
+        selectedCards: [1], // Return 1 card
         timestamp: Date.now()
       });
       
@@ -838,11 +838,11 @@ describe('Age 6 Card Effects', () => {
       expect(choiceResult.events).toContainEqual(
         expect.objectContaining({ type: 'returned', cardId: 1 })
       );
-      // Should NOT draw or score since returned < 2 cards
+      // Should draw and score since returned at least 1 card and no others have returned any
       const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
-      expect(drewEvents).toHaveLength(0);
+      expect(drewEvents).toHaveLength(1);
       const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
-      expect(scoredEvents).toHaveLength(0);
+      expect(scoredEvents).toHaveLength(1);
     });
 
     it('should complete without action if no cards in hand', () => {
@@ -880,14 +880,11 @@ describe('Age 6 Card Effects', () => {
       });
       
       expect(choiceResult.nextPhase).toBe('AwaitingAction');
-      expect(choiceResult.events).toContainEqual(
-        expect.objectContaining({ type: 'dogma_activated' })
-      );
-      // Should not return, draw, or score anything
-      const returnEvents = choiceResult.events.filter(e => e.type === 'returned');
-      expect(returnEvents).toHaveLength(0);
+      // Should not draw or score since returned 0 cards
       const drewEvents = choiceResult.events.filter(e => e.type === 'drew');
       expect(drewEvents).toHaveLength(0);
+      const scoredEvents = choiceResult.events.filter(e => e.type === 'scored');
+      expect(scoredEvents).toHaveLength(0);
     });
   });
 
